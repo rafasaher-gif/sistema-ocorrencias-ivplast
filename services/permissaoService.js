@@ -1,1 +1,4 @@
 
+exports.podeAlterarStatus = () => {
+  return true
+}
