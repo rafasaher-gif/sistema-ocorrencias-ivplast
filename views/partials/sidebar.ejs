@@ -1,1 +1,25 @@
 
+<aside class="sidebar">
+  <div class="sidebar-brand">
+    <h2>IVPLAST</h2>
+    <p>Sistema de Ocorrências</p>
+  </div>
+
+  <nav class="sidebar-nav">
+    <a href="/ocorrencias">Lista de Ocorrências</a>
+    <a href="/ocorrencias/nova">Nova Ocorrência</a>
+    <a href="/relatorios">Relatórios</a>
+
+    <% if (usuario && usuario.perfil === 'Administrador') { %>
+      <a href="/configuracao">Configuração</a>
+    <% } %>
+  </nav>
+
+  <div class="sidebar-footer">
+    <% if (usuario) { %>
+      <p><strong><%= usuario.nome %></strong></p>
+      <p><%= usuario.perfil %></p>
+      <a href="/logout">Sair</a>
+    <% } %>
+  </div>
+</aside>
