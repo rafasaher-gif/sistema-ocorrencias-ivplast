@@ -1,1 +1,56 @@
 
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <title>Login - IVPLAST</title>
+  <%- include('partials/head') %>
+</head>
+<body class="login-body">
+  <div class="login-container">
+    <div class="login-box">
+      <h1>IVPLAST</h1>
+      <p class="subtitle">Sistema de Ocorrências</p>
+
+      <% if (erro) { %>
+        <div class="alert-error"><%= erro %></div>
+      <% } %>
+
+      <form method="POST" action="/login">
+        <div class="form-group">
+          <label for="email">E-mail</label>
+          <input type="email" id="email" name="email" required>
+        </div>
+
+        <div class="form-group">
+          <label for="senha">Senha</label>
+          <input type="password" id="senha" name="senha" required>
+        </div>
+
+        <button type="submit" class="btn-primary">Entrar</button>
+      </form>
+
+      <button type="button" class="link-button" onclick="abrirModalSenha()">
+        Esqueci a senha
+      </button>
+    </div>
+  </div>
+
+  <div id="modalSenha" class="modal">
+    <div class="modal-content">
+      <h2>Esqueci a senha</h2>
+      <p>Para redefinir sua senha, entre em contato com o administrador do sistema.</p>
+      <button class="btn-primary" onclick="fecharModalSenha()">OK</button>
+    </div>
+  </div>
+
+  <script>
+    function abrirModalSenha() {
+      document.getElementById('modalSenha').style.display = 'flex'
+    }
+
+    function fecharModalSenha() {
+      document.getElementById('modalSenha').style.display = 'none'
+    }
+  </script>
+</body>
+</html>
