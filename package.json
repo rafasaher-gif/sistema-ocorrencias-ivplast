@@ -1,1 +1,20 @@
-
+{
+  "name": "sistema-ocorrencias-ivplast",
+  "version": "1.0.0",
+  "description": "Sistema de ocorrências IVPLAST",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.4",
+    "bcrypt": "^5.1.1",
+    "connect-pg-simple": "^10.0.0",
+    "dotenv": "^16.4.5",
+    "ejs": "^3.1.10",
+    "express": "^4.19.2",
+    "express-session": "^1.18.0",
+    "pg": "^8.12.0",
+    "resend": "^4.0.0"
+  }
+}
