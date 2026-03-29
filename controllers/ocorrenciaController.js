@@ -51,6 +51,122 @@ async function uploadArquivosSupabase(ocorrenciaNumero, files = []) {
   return enviados
 }
 
+async function carregarDadosOcorrencia(ocorrenciaId) {
+  const ocorrenciaResult = await pool.query(`
+    SELECT
+      o.*,
+      s.nome AS status_nome,
+      u1.nome AS criado_por_nome,
+      u2.nome AS responsavel_nome
+    FROM ocorrencias o
+    LEFT JOIN status s ON s.id = o.status_id
+    LEFT JOIN usuarios u1 ON u1.id = o.criado_por
+    LEFT JOIN usuarios u2 ON u2.id = o.responsavel_usuario_id
+    WHERE o.id = $1
+    LIMIT 1
+  `, [ocorrenciaId])
+
+  if (!ocorrenciaResult.rows.length) {
+    return null
+  }
+
+  const ocorrencia = ocorrenciaResult.rows[0]
+
+  const questionarioResult = await pool.query(`
+    SELECT *
+    FROM ocorrencia_questionario
+    WHERE ocorrencia_id = $1
+    LIMIT 1
+  `, [ocorrenciaId])
+
+  const itensResult = await pool.query(`
+    SELECT
+      id,
+      tipo_bloco,
+      empresa,
+      produto_id,
+      codigo_produto,
+      nome_produto,
+      quantidade,
+      criado_em
+    FROM ocorrencia_itens
+    WHERE ocorrencia_id = $1
+    ORDER BY id ASC
+  `, [ocorrenciaId])
+
+  const anexosResult = await pool.query(`
+    SELECT
+      id,
+      nome_original,
+      nome_armazenado,
+      url_arquivo,
+      tamanho_bytes,
+      enviado_em
+    FROM anexos
+    WHERE ocorrencia_id = $1
+    ORDER BY id ASC
+  `, [ocorrenciaId])
+
+  const historicoResult = await pool.query(`
+    SELECT
+      h.*,
+      u.nome AS usuario_nome,
+      ue.nome AS editado_por_nome
+    FROM historico_ocorrencias h
+    LEFT JOIN usuarios u ON u.id = h.usuario_id
+    LEFT JOIN usuarios ue ON ue.id = h.editado_por_usuario_id
+    WHERE h.ocorrencia_id = $1
+    ORDER BY h.criado_em ASC, h.id ASC
+  `, [ocorrenciaId])
+
+  const statusResult = await pool.query(`
+    SELECT id, nome, ordem_fluxo
+    FROM status
+    WHERE ativo = TRUE
+    ORDER BY ordem_fluxo
+  `)
+
+  const itensPorBloco = {
+    transportadora_faltou: [],
+    transportadora_sobrou: [],
+    fabrica_faltou: [],
+    fabrica_sobrou: [],
+    outros: []
+  }
+
+  for (const item of itensResult.rows) {
+    if (itensPorBloco[item.tipo_bloco]) {
+      itensPorBloco[item.tipo_bloco].push(item)
+    } else {
+      itensPorBloco.outros.push(item)
+    }
+  }
+
+  return {
+    ocorrencia,
+    questionario: questionarioResult.rows[0] || null,
+    itens: itensResult.rows,
+    itensPorBloco,
+    anexos: anexosResult.rows,
+    historico: historicoResult.rows,
+    statusList: statusResult.rows
+  }
+}
+
+function podeAlterarStatus(usuario, statusAtual, novoStatus) {
+  const perfil = usuario?.perfil || ''
+
+  if (novoStatus === 'Resolvido Aprovado') {
+    return ['Administrador', 'Diretoria'].includes(perfil)
+  }
+
+  if (statusAtual === 'Aguardando financeiro') {
+    return ['Administrador', 'Financeiro'].includes(perfil)
+  }
+
+  return true
+}
+
 exports.lista = async (req, res) => {
   try {
     const busca = req.query.busca || ''
@@ -492,101 +608,160 @@ exports.criar = async (req, res) => {
 
 exports.detalhe = async (req, res) => {
   try {
-    const ocorrenciaId = req.params.id
+    const dados = await carregarDadosOcorrencia(req.params.id)
 
-    const ocorrenciaResult = await pool.query(`
-      SELECT
-        o.*,
-        s.nome AS status_nome,
-        u1.nome AS criado_por_nome,
-        u2.nome AS responsavel_nome
-      FROM ocorrencias o
-      LEFT JOIN status s ON s.id = o.status_id
-      LEFT JOIN usuarios u1 ON u1.id = o.criado_por
-      LEFT JOIN usuarios u2 ON u2.id = o.responsavel_usuario_id
-      WHERE o.id = $1
-      LIMIT 1
-    `, [ocorrenciaId])
-
-    if (!ocorrenciaResult.rows.length) {
+    if (!dados) {
       return res.status(404).send('Ocorrência não encontrada')
     }
 
-    const ocorrencia = ocorrenciaResult.rows[0]
-
-    const questionarioResult = await pool.query(`
-      SELECT *
-      FROM ocorrencia_questionario
-      WHERE ocorrencia_id = $1
-      LIMIT 1
-    `, [ocorrenciaId])
-
-    const itensResult = await pool.query(`
-      SELECT
-        id,
-        tipo_bloco,
-        empresa,
-        produto_id,
-        codigo_produto,
-        nome_produto,
-        quantidade,
-        criado_em
-      FROM ocorrencia_itens
-      WHERE ocorrencia_id = $1
-      ORDER BY id ASC
-    `, [ocorrenciaId])
-
-    const anexosResult = await pool.query(`
-      SELECT
-        id,
-        nome_original,
-        nome_armazenado,
-        url_arquivo,
-        tamanho_bytes,
-        enviado_em
-      FROM anexos
-      WHERE ocorrencia_id = $1
-      ORDER BY id ASC
-    `, [ocorrenciaId])
-
-    const historicoResult = await pool.query(`
-      SELECT
-        h.*,
-        u.nome AS usuario_nome,
-        ue.nome AS editado_por_nome
-      FROM historico_ocorrencias h
-      LEFT JOIN usuarios u ON u.id = h.usuario_id
-      LEFT JOIN usuarios ue ON ue.id = h.editado_por_usuario_id
-      WHERE h.ocorrencia_id = $1
-      ORDER BY h.criado_em ASC, h.id ASC
-    `, [ocorrenciaId])
-
-    const itensPorBloco = {
-      transportadora_faltou: [],
-      transportadora_sobrou: [],
-      fabrica_faltou: [],
-      fabrica_sobrou: [],
-      outros: []
-    }
-
-    for (const item of itensResult.rows) {
-      if (itensPorBloco[item.tipo_bloco]) {
-        itensPorBloco[item.tipo_bloco].push(item)
-      } else {
-        itensPorBloco.outros.push(item)
-      }
-    }
-
     return res.render('acompanhamento_ocorrencia', {
-      ocorrencia,
-      questionario: questionarioResult.rows[0] || null,
-      itens: itensResult.rows,
-      itensPorBloco,
-      anexos: anexosResult.rows,
-      historico: historicoResult.rows
+      ...dados,
+      erro: null,
+      sucesso: null
     })
   } catch (error) {
     console.error('Erro ao abrir detalhe da ocorrência:', error)
     return res.status(500).send('Erro ao abrir ocorrência')
+  }
+}
+
+exports.atualizarOcorrencia = async (req, res) => {
+  const client = await pool.connect()
+
+  try {
+    const ocorrenciaId = req.params.id
+    const novoStatus = req.body.novo_status || ''
+    const comentario = (req.body.comentario || '').trim()
+
+    const atualResult = await client.query(`
+      SELECT
+        o.id,
+        o.numero,
+        o.status,
+        s.nome AS status_nome
+      FROM ocorrencias o
+      LEFT JOIN status s ON s.id = o.status_id
+      WHERE o.id = $1
+      LIMIT 1
+    `, [ocorrenciaId])
+
+    if (!atualResult.rows.length) {
+      return res.status(404).send('Ocorrência não encontrada')
+    }
+
+    const ocorrenciaAtual = atualResult.rows[0]
+    const statusAtualNome = ocorrenciaAtual.status_nome || ocorrenciaAtual.status || ''
+
+    if (!comentario) {
+      const dados = await carregarDadosOcorrencia(ocorrenciaId)
+      return res.status(400).render('acompanhamento_ocorrencia', {
+        ...dados,
+        erro: 'Informe um comentário/andamento para registrar a atualização.',
+        sucesso: null
+      })
+    }
+
+    await client.query('BEGIN')
+
+    if (novoStatus && novoStatus !== statusAtualNome) {
+      if (!podeAlterarStatus(req.session.usuario, statusAtualNome, novoStatus)) {
+        await client.query('ROLLBACK')
+        const dados = await carregarDadosOcorrencia(ocorrenciaId)
+        return res.status(403).render('acompanhamento_ocorrencia', {
+          ...dados,
+          erro: 'Seu perfil não tem permissão para aplicar essa mudança de status.',
+          sucesso: null
+        })
+      }
+
+      const statusResult = await client.query(`
+        SELECT id, nome
+        FROM status
+        WHERE nome = $1
+        LIMIT 1
+      `, [novoStatus])
+
+      if (!statusResult.rows.length) {
+        await client.query('ROLLBACK')
+        const dados = await carregarDadosOcorrencia(ocorrenciaId)
+        return res.status(400).render('acompanhamento_ocorrencia', {
+          ...dados,
+          erro: 'Status selecionado não encontrado.',
+          sucesso: null
+        })
+      }
+
+      await client.query(`
+        UPDATE ocorrencias
+        SET
+          status = $1,
+          status_id = $2
+        WHERE id = $3
+      `, [novoStatus, statusResult.rows[0].id, ocorrenciaId])
+
+      await client.query(`
+        INSERT INTO historico_ocorrencias (
+          ocorrencia_id,
+          usuario_id,
+          acao,
+          tipo_evento,
+          titulo_evento,
+          descricao_evento
+        )
+        VALUES ($1, $2, $3, $4, $5, $6)
+      `, [
+        ocorrenciaId,
+        req.session.usuario.id,
+        'Alteração de status',
+        'STATUS',
+        `Status alterado para ${novoStatus}`,
+        `Status alterado de "${statusAtualNome}" para "${novoStatus}". Motivo/andamento: ${comentario}`
+      ])
+    }
+
+    await client.query(`
+      INSERT INTO historico_ocorrencias (
+        ocorrencia_id,
+        usuario_id,
+        acao,
+        tipo_evento,
+        titulo_evento,
+        descricao_evento
+      )
+      VALUES ($1, $2, $3, $4, $5, $6)
+    `, [
+      ocorrenciaId,
+      req.session.usuario.id,
+      'Atualização manual',
+      'ANDAMENTO',
+      'Novo andamento registrado',
+      comentario
+    ])
+
+    await client.query('COMMIT')
+
+    const dados = await carregarDadosOcorrencia(ocorrenciaId)
+
+    return res.render('acompanhamento_ocorrencia', {
+      ...dados,
+      erro: null,
+      sucesso: 'Atualização registrada com sucesso.'
+    })
+  } catch (error) {
+    await client.query('ROLLBACK')
+    console.error('Erro ao atualizar ocorrência:', error)
+
+    const dados = await carregarDadosOcorrencia(req.params.id)
+    if (!dados) {
+      return res.status(500).send('Erro ao atualizar ocorrência')
+    }
+
+    return res.status(500).render('acompanhamento_ocorrencia', {
+      ...dados,
+      erro: 'Erro interno ao atualizar ocorrência.',
+      sucesso: null
+    })
+  } finally {
+    client.release()
   }
 }
