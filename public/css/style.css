@@ -268,3 +268,92 @@ body {
   color: #fff;
   border-color: #2563eb;
 }
+.bloco-form {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.bloco-form h3 {
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+
+.grid-1,
+.grid-2,
+.grid-3 {
+  display: grid;
+  gap: 16px;
+}
+
+.grid-1 {
+  grid-template-columns: 1fr;
+}
+
+.grid-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.grid-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.full {
+  grid-column: 1 / -1;
+}
+
+.align-end {
+  display: flex;
+  align-items: end;
+}
+
+.bloco-form label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: bold;
+}
+
+.bloco-form input,
+.bloco-form select,
+.bloco-form textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-family: inherit;
+}
+
+.hidden {
+  display: none;
+}
+
+.top-gap {
+  margin-top: 16px;
+}
+
+.acoes-form {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.btn-remover-item {
+  border: none;
+  background: #dc2626;
+  color: #fff;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.btn-remover-item:hover {
+  background: #b91c1c;
+}
+
+@media (max-width: 900px) {
+  .grid-2,
+  .grid-3 {
+    grid-template-columns: 1fr;
+  }
+}
