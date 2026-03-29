@@ -5,34 +5,71 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!form) return
 
   const cnpjInput = document.getElementById('cnpj')
-  const temNfd = document.getElementById('tem_nfd')
-  const boxNumeroNfd = document.getElementById('box_numero_nfd')
+
+  const radiosNfd = document.querySelectorAll('input[name="tem_nfd"]')
   const numeroNfd = document.getElementById('numero_nfd')
 
   const origemErro = document.getElementById('origem_erro')
-  const questionarioTransportadora = document.getElementById('questionario_transportadora')
-  const questionarioFabrica = document.getElementById('questionario_fabrica')
+  const cardDynamic = document.getElementById('cardDynamic')
+  const qTransportadora = document.getElementById('qTransportadora')
+  const qFabrica = document.getElementById('qFabrica')
+  const qSimples = document.getElementById('qSimples')
 
-  const faltouVolume = document.getElementById('faltou_volume')
-  const boxQtdVolumes = document.getElementById('box_qtd_volumes')
+  const radiosFaltouVolume = document.querySelectorAll('input[name="faltou_volume"]')
+  const quantidadeVolumes = document.getElementById('quantidade_volumes_faltantes')
 
-  const volumeFabrica = document.getElementById('volume_saiu_correto_fabrica')
-  const volumeTransmac = document.getElementById('volume_saiu_correto_transmac')
-  const alertaTransportadora = document.getElementById('alerta_transportadora')
+  const radiosFabricaOk = document.querySelectorAll('input[name="volume_saiu_correto_fabrica"]')
+  const radiosTransmacOk = document.querySelectorAll('input[name="volume_saiu_correto_transmac"]')
+  const toastTransportadora = document.getElementById('toastTransportadora')
 
   const faturadoPor = document.getElementById('faturado_por')
-  const produtoSelect = document.getElementById('produto_select')
-  const quantidadeItem = document.getElementById('quantidade_item')
-  const btnAdicionarItem = document.getElementById('btnAdicionarItem')
-  const tabelaItensBody = document.querySelector('#tabelaItens tbody')
   const itensJson = document.getElementById('itens_json')
 
-  const faltouItem = document.getElementById('faltou_item')
-  const sobrouItem = document.getElementById('sobrou_item')
-  const faltouItemFabrica = document.getElementById('faltou_item_fabrica')
-  const sobrouItemFabrica = document.getElementById('sobrou_item_fabrica')
+  const builderConfigs = [
+    {
+      radioName: 't_faltou_item',
+      wrapId: 'tItensFaltouWrap',
+      listId: 'tItensFaltouList',
+      selectId: 't_faltou_produto_select',
+      qtyId: 't_faltou_quantidade',
+      btnId: 'btnAddTFaltou',
+      tipo: 'transportadora_faltou'
+    },
+    {
+      radioName: 't_sobrou_item',
+      wrapId: 'tItensSobrouWrap',
+      listId: 'tItensSobrouList',
+      selectId: 't_sobrou_produto_select',
+      qtyId: 't_sobrou_quantidade',
+      btnId: 'btnAddTSobrou',
+      tipo: 'transportadora_sobrou'
+    },
+    {
+      radioName: 'f_faltou_item',
+      wrapId: 'fItensFaltouWrap',
+      listId: 'fItensFaltouList',
+      selectId: 'f_faltou_produto_select',
+      qtyId: 'f_faltou_quantidade',
+      btnId: 'btnAddFFaltou',
+      tipo: 'fabrica_faltou'
+    },
+    {
+      radioName: 'f_sobrou_item',
+      wrapId: 'fItensSobrouWrap',
+      listId: 'fItensSobrouList',
+      selectId: 'f_sobrou_produto_select',
+      qtyId: 'f_sobrou_quantidade',
+      btnId: 'btnAddFSobrou',
+      tipo: 'fabrica_sobrou'
+    }
+  ]
 
-  let itens = []
+  const itensState = {
+    transportadora_faltou: [],
+    transportadora_sobrou: [],
+    fabrica_faltou: [],
+    fabrica_sobrou: []
+  }
 
   function aplicarMascaraCnpj(valor) {
     return valor
@@ -44,20 +81,76 @@ document.addEventListener('DOMContentLoaded', () => {
       .slice(0, 18)
   }
 
-  function atualizarItensJson() {
-    itensJson.value = JSON.stringify(itens)
+  function getRadioValue(name) {
+    const checked = document.querySelector(`input[name="${name}"]:checked`)
+    return checked ? checked.value : ''
   }
 
-  function renderizarItens() {
-    tabelaItensBody.innerHTML = ''
+  function toggleNfd() {
+    const valor = getRadioValue('tem_nfd')
+    const habilitar = valor === 'true'
+    numeroNfd.disabled = !habilitar
+    numeroNfd.required = habilitar
+    if (!habilitar) numeroNfd.value = ''
+  }
+
+  function atualizarQuestionario() {
+    const origem = origemErro.value
+
+    cardDynamic.classList.add('hidden')
+    qTransportadora.classList.add('hidden')
+    qFabrica.classList.add('hidden')
+    qSimples.classList.add('hidden')
+
+    if (!origem) return
+
+    cardDynamic.classList.remove('hidden')
+
+    if (origem === 'Transportadora') {
+      qTransportadora.classList.remove('hidden')
+      return
+    }
+
+    if (origem === 'Fábrica') {
+      qFabrica.classList.remove('hidden')
+      return
+    }
+
+    qSimples.classList.remove('hidden')
+  }
+
+  function toggleQtdVolumes() {
+    const valor = getRadioValue('faltou_volume')
+    const habilitar = valor === 'true'
+    quantidadeVolumes.disabled = !habilitar
+    if (!habilitar) quantidadeVolumes.value = ''
+  }
+
+  function atualizarToastTransportadora() {
+    const fabricaOk = getRadioValue('volume_saiu_correto_fabrica') === 'true'
+    const transmacOk = getRadioValue('volume_saiu_correto_transmac') === 'true'
+    toastTransportadora.classList.toggle('hidden', !(fabricaOk && transmacOk))
+  }
+
+  function flattenItens() {
+    return [
+      ...itensState.transportadora_faltou,
+      ...itensState.transportadora_sobrou,
+      ...itensState.fabrica_faltou,
+      ...itensState.fabrica_sobrou
+    ]
+  }
+
+  function atualizarItensJson() {
+    itensJson.value = JSON.stringify(flattenItens())
+  }
+
+  function renderList(tipo, tbody) {
+    const itens = itensState[tipo]
+    tbody.innerHTML = ''
 
     if (!itens.length) {
-      tabelaItensBody.innerHTML = `
-        <tr id="linhaSemItens">
-          <td colspan="5">Nenhum item adicionado.</td>
-        </tr>
-      `
-      atualizarItensJson()
+      tbody.innerHTML = '<tr class="sem-itens-row"><td colspan="5">Nenhum item adicionado.</td></tr>'
       return
     }
 
@@ -68,19 +161,17 @@ document.addEventListener('DOMContentLoaded', () => {
         <td>${item.nome_produto || ''}</td>
         <td>${item.empresa || ''}</td>
         <td>${item.quantidade || ''}</td>
-        <td><button type="button" class="btn-remover-item" data-index="${index}">Remover</button></td>
+        <td><button type="button" class="btn-remover-item" data-tipo="${tipo}" data-index="${index}">Remover</button></td>
       `
-      tabelaItensBody.appendChild(tr)
+      tbody.appendChild(tr)
     })
-
-    atualizarItensJson()
   }
 
-  async function carregarProdutos(empresa) {
-    produtoSelect.innerHTML = '<option value="">Carregando...</option>'
+  async function carregarProdutosParaSelect(select, empresa) {
+    select.innerHTML = '<option value="">Carregando...</option>'
 
     if (!empresa) {
-      produtoSelect.innerHTML = '<option value="">Selecione o faturado por primeiro</option>'
+      select.innerHTML = '<option value="">Selecione o faturado por primeiro</option>'
       return
     }
 
@@ -88,10 +179,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const response = await fetch(`/ocorrencias/produtos?empresa=${encodeURIComponent(empresa)}`)
       const data = await response.json()
 
-      produtoSelect.innerHTML = '<option value="">Selecione</option>'
+      select.innerHTML = '<option value="">Selecione</option>'
 
       if (!data.produtos || !data.produtos.length) {
-        produtoSelect.innerHTML = '<option value="">Nenhum produto encontrado</option>'
+        select.innerHTML = '<option value="">Nenhum produto encontrado</option>'
         return
       }
 
@@ -102,100 +193,106 @@ document.addEventListener('DOMContentLoaded', () => {
         option.dataset.nome = produto.nome
         option.dataset.empresa = produto.empresa
         option.textContent = `${produto.codigo} - ${produto.nome}`
-        produtoSelect.appendChild(option)
+        select.appendChild(option)
       })
     } catch (error) {
-      produtoSelect.innerHTML = '<option value="">Erro ao carregar produtos</option>'
+      select.innerHTML = '<option value="">Erro ao carregar produtos</option>'
     }
   }
 
-  function atualizarQuestionario() {
-    const origem = origemErro.value
+  async function carregarTodosProdutos() {
+    const empresa = faturadoPor.value
 
-    questionarioTransportadora.classList.add('hidden')
-    questionarioFabrica.classList.add('hidden')
-
-    if (origem === 'Transportadora') {
-      questionarioTransportadora.classList.remove('hidden')
-    }
-
-    if (origem === 'Fábrica') {
-      questionarioFabrica.classList.remove('hidden')
-      faltouItem.value = faltouItemFabrica.value || ''
-      sobrouItem.value = sobrouItemFabrica.value || ''
+    for (const cfg of builderConfigs) {
+      const select = document.getElementById(cfg.selectId)
+      await carregarProdutosParaSelect(select, empresa)
     }
   }
 
-  function atualizarAlertaTransportadora() {
-    const fabricaOk = volumeFabrica.value === 'true'
-    const transmacOk = volumeTransmac.value === 'true'
-    alertaTransportadora.classList.toggle('hidden', !(fabricaOk && transmacOk))
+  function toggleWrapByRadio(cfg) {
+    const valor = getRadioValue(cfg.radioName)
+    const wrap = document.getElementById(cfg.wrapId)
+    wrap.classList.toggle('hidden', valor !== 'true')
   }
 
-  temNfd.addEventListener('change', () => {
-    const mostrar = temNfd.value === 'true'
-    boxNumeroNfd.classList.toggle('hidden', !mostrar)
-    numeroNfd.required = mostrar
-    if (!mostrar) numeroNfd.value = ''
-  })
-
-  origemErro.addEventListener('change', atualizarQuestionario)
-
-  faltouVolume.addEventListener('change', () => {
-    const mostrar = faltouVolume.value === 'true'
-    boxQtdVolumes.classList.toggle('hidden', !mostrar)
-  })
-
-  volumeFabrica.addEventListener('change', atualizarAlertaTransportadora)
-  volumeTransmac.addEventListener('change', atualizarAlertaTransportadora)
-
-  faturadoPor.addEventListener('change', () => {
-    itens = []
-    renderizarItens()
-    carregarProdutos(faturadoPor.value)
-  })
-
-  btnAdicionarItem.addEventListener('click', () => {
-    const selected = produtoSelect.options[produtoSelect.selectedIndex]
-    const produtoId = produtoSelect.value
-    const quantidade = quantidadeItem.value
+  function adicionarItem(cfg) {
+    const select = document.getElementById(cfg.selectId)
+    const qty = document.getElementById(cfg.qtyId)
+    const selected = select.options[select.selectedIndex]
 
     if (!faturadoPor.value) {
       alert('Selecione primeiro o campo "Faturado por".')
       return
     }
 
-    if (!produtoId) {
+    if (!select.value) {
       alert('Selecione um produto.')
       return
     }
 
-    if (!quantidade || Number(quantidade) <= 0) {
+    if (!qty.value || Number(qty.value) <= 0) {
       alert('Informe uma quantidade válida.')
       return
     }
 
-    itens.push({
-      produto_id: Number(produtoId),
+    itensState[cfg.tipo].push({
+      tipo_bloco: cfg.tipo,
+      produto_id: Number(select.value),
       codigo_produto: selected.dataset.codigo,
       nome_produto: selected.dataset.nome,
       empresa: selected.dataset.empresa,
-      quantidade: Number(quantidade),
-      tipo_bloco: 'principal'
+      quantidade: Number(qty.value)
     })
 
-    produtoSelect.value = ''
-    quantidadeItem.value = ''
-    renderizarItens()
+    const tbody = document.getElementById(cfg.listId)
+    renderList(cfg.tipo, tbody)
+    atualizarItensJson()
+
+    select.value = ''
+    qty.value = ''
+  }
+
+  function bindConfig(cfg) {
+    const radios = document.querySelectorAll(`input[name="${cfg.radioName}"]`)
+    const btn = document.getElementById(cfg.btnId)
+    const tbody = document.getElementById(cfg.listId)
+
+    radios.forEach(r => {
+      r.addEventListener('change', () => toggleWrapByRadio(cfg))
+    })
+
+    btn.addEventListener('click', () => adicionarItem(cfg))
+
+    tbody.addEventListener('click', (e) => {
+      if (!e.target.classList.contains('btn-remover-item')) return
+      if (e.target.dataset.tipo !== cfg.tipo) return
+
+      const index = Number(e.target.dataset.index)
+      itensState[cfg.tipo].splice(index, 1)
+      renderList(cfg.tipo, tbody)
+      atualizarItensJson()
+    })
+
+    toggleWrapByRadio(cfg)
+    renderList(cfg.tipo, tbody)
+  }
+
+  radiosNfd.forEach(r => r.addEventListener('change', toggleNfd))
+  radiosFaltouVolume.forEach(r => r.addEventListener('change', toggleQtdVolumes))
+  radiosFabricaOk.forEach(r => r.addEventListener('change', atualizarToastTransportadora))
+  radiosTransmacOk.forEach(r => r.addEventListener('change', atualizarToastTransportadora))
+  origemErro.addEventListener('change', atualizarQuestionario)
+  faturadoPor.addEventListener('change', async () => {
+    Object.keys(itensState).forEach(k => itensState[k] = [])
+    await carregarTodosProdutos()
+    builderConfigs.forEach(cfg => {
+      const tbody = document.getElementById(cfg.listId)
+      renderList(cfg.tipo, tbody)
+    })
+    atualizarItensJson()
   })
 
-  tabelaItensBody.addEventListener('click', (e) => {
-    if (e.target.classList.contains('btn-remover-item')) {
-      const index = Number(e.target.dataset.index)
-      itens.splice(index, 1)
-      renderizarItens()
-    }
-  })
+  builderConfigs.forEach(bindConfig)
 
   cnpjInput.addEventListener('input', () => {
     cnpjInput.value = aplicarMascaraCnpj(cnpjInput.value)
@@ -204,14 +301,9 @@ document.addEventListener('DOMContentLoaded', () => {
   form.addEventListener('submit', async (e) => {
     e.preventDefault()
 
-    if (temNfd.value === 'true' && !numeroNfd.value.trim()) {
+    if (getRadioValue('tem_nfd') === 'true' && !numeroNfd.value.trim()) {
       alert('Informe o número da NFD.')
       return
-    }
-
-    if (origemErro.value === 'Fábrica') {
-      faltouItem.value = faltouItemFabrica.value || ''
-      sobrouItem.value = sobrouItemFabrica.value || ''
     }
 
     atualizarItensJson()
@@ -246,5 +338,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   })
 
-  renderizarItens()
+  toggleNfd()
+  toggleQtdVolumes()
+  atualizarToastTransportadora()
+  atualizarQuestionario()
+  atualizarItensJson()
 })
