@@ -68,7 +68,6 @@
                   <% }) %>
                 </select>
               </div>
-
               <div></div>
             </div>
 
@@ -188,12 +187,7 @@
               <div class="table-wrap top-gap">
                 <table class="tabela-ocorrencias">
                   <thead>
-                    <tr>
-                      <th>Código</th>
-                      <th>Produto</th>
-                      <th>Empresa</th>
-                      <th>Quantidade</th>
-                    </tr>
+                    <tr><th>Código</th><th>Produto</th><th>Empresa</th><th>Quantidade</th></tr>
                   </thead>
                   <tbody>
                     <% itensPorBloco.transportadora_faltou.forEach(item => { %>
@@ -216,12 +210,7 @@
               <div class="table-wrap top-gap">
                 <table class="tabela-ocorrencias">
                   <thead>
-                    <tr>
-                      <th>Código</th>
-                      <th>Produto</th>
-                      <th>Empresa</th>
-                      <th>Quantidade</th>
-                    </tr>
+                    <tr><th>Código</th><th>Produto</th><th>Empresa</th><th>Quantidade</th></tr>
                   </thead>
                   <tbody>
                     <% itensPorBloco.transportadora_sobrou.forEach(item => { %>
@@ -244,12 +233,7 @@
               <div class="table-wrap top-gap">
                 <table class="tabela-ocorrencias">
                   <thead>
-                    <tr>
-                      <th>Código</th>
-                      <th>Produto</th>
-                      <th>Empresa</th>
-                      <th>Quantidade</th>
-                    </tr>
+                    <tr><th>Código</th><th>Produto</th><th>Empresa</th><th>Quantidade</th></tr>
                   </thead>
                   <tbody>
                     <% itensPorBloco.fabrica_faltou.forEach(item => { %>
@@ -272,12 +256,7 @@
               <div class="table-wrap top-gap">
                 <table class="tabela-ocorrencias">
                   <thead>
-                    <tr>
-                      <th>Código</th>
-                      <th>Produto</th>
-                      <th>Empresa</th>
-                      <th>Quantidade</th>
-                    </tr>
+                    <tr><th>Código</th><th>Produto</th><th>Empresa</th><th>Quantidade</th></tr>
                   </thead>
                   <tbody>
                     <% itensPorBloco.fabrica_sobrou.forEach(item => { %>
@@ -300,12 +279,7 @@
               <div class="table-wrap top-gap">
                 <table class="tabela-ocorrencias">
                   <thead>
-                    <tr>
-                      <th>Código</th>
-                      <th>Produto</th>
-                      <th>Empresa</th>
-                      <th>Quantidade</th>
-                    </tr>
+                    <tr><th>Código</th><th>Produto</th><th>Empresa</th><th>Quantidade</th></tr>
                   </thead>
                   <tbody>
                     <% itensPorBloco.outros.forEach(item => { %>
@@ -362,12 +336,8 @@
                       <strong><%= item.titulo_evento || item.acao || 'Evento' %></strong>
                       <span><%= item.criado_em ? new Date(item.criado_em).toLocaleString('pt-BR') : '' %></span>
                     </div>
-                    <div class="timeline-meta">
-                      <%= item.usuario_nome || 'Sistema' %>
-                    </div>
-                    <div class="timeline-texto">
-                      <%= item.descricao_evento || item.acao || '' %>
-                    </div>
+                    <div class="timeline-meta"><%= item.usuario_nome || 'Sistema' %></div>
+                    <div class="timeline-texto"><%= item.descricao_evento || item.acao || '' %></div>
                   </div>
                 </div>
               <% }) %>
