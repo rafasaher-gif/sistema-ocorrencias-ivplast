@@ -1,4 +1,3 @@
-
 const bcrypt = require('bcrypt')
 const pool = require('../config/database')
 
@@ -10,10 +9,14 @@ exports.login = async (req, res) => {
   try {
     const { email, senha } = req.body
 
+    console.log('Tentativa de login:', email)
+
     const result = await pool.query(
       'SELECT id, nome, email, senha_hash, perfil, ativo FROM usuarios WHERE email = $1 LIMIT 1',
       [email]
     )
+
+    console.log('Usuários encontrados:', result.rows.length)
 
     if (result.rows.length === 0) {
       return res.status(401).render('login', { erro: 'Usuário ou senha inválidos.' })
@@ -21,11 +24,15 @@ exports.login = async (req, res) => {
 
     const usuario = result.rows[0]
 
+    console.log('Usuário encontrado:', usuario.email, 'ativo:', usuario.ativo)
+
     if (!usuario.ativo) {
       return res.status(403).render('login', { erro: 'Usuário inativo.' })
     }
 
     const senhaValida = await bcrypt.compare(senha, usuario.senha_hash)
+
+    console.log('Senha válida:', senhaValida)
 
     if (!senhaValida) {
       return res.status(401).render('login', { erro: 'Usuário ou senha inválidos.' })
