@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
@@ -18,7 +19,7 @@
           <section class="nova-card destaque">
             <div class="nova-card-header">
               <div>
-                <h3>Abertura da ocorrência</h3>
+                <h3>Abrir nova ocorrência</h3>
                 <p>Preencha os dados do caso conforme a origem do erro.</p>
               </div>
               <div class="numero-badge">
@@ -42,6 +43,7 @@
           <section class="nova-card">
             <div class="nova-section-title">
               <h3>Cliente</h3>
+              <span>Dados do cliente/pedido</span>
             </div>
 
             <div class="nova-grid-2">
@@ -70,6 +72,7 @@
           <section class="nova-card">
             <div class="nova-section-title">
               <h3>NFD</h3>
+              <span>Sempre visível</span>
             </div>
 
             <div class="nova-grid-2">
@@ -91,7 +94,7 @@
               <div>
                 <label for="numero_nfd">Número da NFD *</label>
                 <input type="text" id="numero_nfd" name="numero_nfd" disabled>
-                <small class="campo-ajuda">Este campo só habilita quando marcar “Sim”.</small>
+                <small class="campo-ajuda">Habilita somente quando marcar “Sim”.</small>
               </div>
             </div>
           </section>
@@ -99,6 +102,7 @@
           <section class="nova-card">
             <div class="nova-section-title">
               <h3>Classificação</h3>
+              <span>Quem faturou / responsável / origem</span>
             </div>
 
             <div class="nova-grid-2">
@@ -109,7 +113,7 @@
                   <option value="IVPLAST">IVPLAST</option>
                   <option value="VENANI">VENANI</option>
                 </select>
-                <small class="campo-ajuda">A lista de itens muda conforme esta seleção.</small>
+                <small class="campo-ajuda">A busca dos itens usa somente produtos da empresa selecionada.</small>
               </div>
 
               <div>
@@ -133,17 +137,13 @@
                   <option value="Outro">Outro</option>
                 </select>
               </div>
-
-              <div>
-                <label for="titulo">Título / Assunto *</label>
-                <input type="text" id="titulo" name="titulo" placeholder="Ex.: Faltou 3 pacotes / Divergência de itens" required>
-              </div>
             </div>
           </section>
 
           <section class="nova-card hidden" id="cardQuestionario">
             <div class="nova-section-title">
               <h3>Questionário dinâmico</h3>
+              <span>Conforme a origem do erro</span>
             </div>
 
             <div id="questionarioTransportadora" class="hidden">
@@ -219,26 +219,28 @@
                   </div>
 
                   <div id="wrap_t_faltou" class="hidden">
-                    <div class="item-builder">
+                    <div class="item-builder item-builder-vertical">
                       <div class="autocomplete-wrap">
                         <label>Produto</label>
-                        <input type="text" id="busca_t_faltou" placeholder="Digite código ou nome do produto">
+                        <input type="text" id="busca_t_faltou" placeholder="Digite código ou descrição">
                         <div class="autocomplete-list" id="lista_t_faltou"></div>
                       </div>
 
-                      <div>
-                        <label>Código</label>
-                        <input type="text" id="codigo_t_faltou" disabled>
-                      </div>
+                      <div class="nova-grid-3 itens-campos">
+                        <div>
+                          <label>Código</label>
+                          <input type="text" id="codigo_t_faltou" disabled>
+                        </div>
 
-                      <div>
-                        <label>Produto selecionado</label>
-                        <input type="text" id="nome_t_faltou" disabled>
-                      </div>
+                        <div>
+                          <label>Produto selecionado</label>
+                          <input type="text" id="nome_t_faltou" disabled>
+                        </div>
 
-                      <div>
-                        <label>Quantidade</label>
-                        <input type="number" id="quantidade_t_faltou" min="1">
+                        <div>
+                          <label>Quantidade</label>
+                          <input type="number" id="quantidade_t_faltou" min="1">
+                        </div>
                       </div>
 
                       <div class="alinha-bottom">
@@ -281,26 +283,28 @@
                   </div>
 
                   <div id="wrap_t_sobrou" class="hidden">
-                    <div class="item-builder">
+                    <div class="item-builder item-builder-vertical">
                       <div class="autocomplete-wrap">
                         <label>Produto</label>
-                        <input type="text" id="busca_t_sobrou" placeholder="Digite código ou nome do produto">
+                        <input type="text" id="busca_t_sobrou" placeholder="Digite código ou descrição">
                         <div class="autocomplete-list" id="lista_t_sobrou"></div>
                       </div>
 
-                      <div>
-                        <label>Código</label>
-                        <input type="text" id="codigo_t_sobrou" disabled>
-                      </div>
+                      <div class="nova-grid-3 itens-campos">
+                        <div>
+                          <label>Código</label>
+                          <input type="text" id="codigo_t_sobrou" disabled>
+                        </div>
 
-                      <div>
-                        <label>Produto selecionado</label>
-                        <input type="text" id="nome_t_sobrou" disabled>
-                      </div>
+                        <div>
+                          <label>Produto selecionado</label>
+                          <input type="text" id="nome_t_sobrou" disabled>
+                        </div>
 
-                      <div>
-                        <label>Quantidade</label>
-                        <input type="number" id="quantidade_t_sobrou" min="1">
+                        <div>
+                          <label>Quantidade</label>
+                          <input type="number" id="quantidade_t_sobrou" min="1">
+                        </div>
                       </div>
 
                       <div class="alinha-bottom">
@@ -349,26 +353,28 @@
                   </div>
 
                   <div id="wrap_f_faltou" class="hidden">
-                    <div class="item-builder">
+                    <div class="item-builder item-builder-vertical">
                       <div class="autocomplete-wrap">
                         <label>Produto</label>
-                        <input type="text" id="busca_f_faltou" placeholder="Digite código ou nome do produto">
+                        <input type="text" id="busca_f_faltou" placeholder="Digite código ou descrição">
                         <div class="autocomplete-list" id="lista_f_faltou"></div>
                       </div>
 
-                      <div>
-                        <label>Código</label>
-                        <input type="text" id="codigo_f_faltou" disabled>
-                      </div>
+                      <div class="nova-grid-3 itens-campos">
+                        <div>
+                          <label>Código</label>
+                          <input type="text" id="codigo_f_faltou" disabled>
+                        </div>
 
-                      <div>
-                        <label>Produto selecionado</label>
-                        <input type="text" id="nome_f_faltou" disabled>
-                      </div>
+                        <div>
+                          <label>Produto selecionado</label>
+                          <input type="text" id="nome_f_faltou" disabled>
+                        </div>
 
-                      <div>
-                        <label>Quantidade</label>
-                        <input type="number" id="quantidade_f_faltou" min="1">
+                        <div>
+                          <label>Quantidade</label>
+                          <input type="number" id="quantidade_f_faltou" min="1">
+                        </div>
                       </div>
 
                       <div class="alinha-bottom">
@@ -411,26 +417,28 @@
                   </div>
 
                   <div id="wrap_f_sobrou" class="hidden">
-                    <div class="item-builder">
+                    <div class="item-builder item-builder-vertical">
                       <div class="autocomplete-wrap">
                         <label>Produto</label>
-                        <input type="text" id="busca_f_sobrou" placeholder="Digite código ou nome do produto">
+                        <input type="text" id="busca_f_sobrou" placeholder="Digite código ou descrição">
                         <div class="autocomplete-list" id="lista_f_sobrou"></div>
                       </div>
 
-                      <div>
-                        <label>Código</label>
-                        <input type="text" id="codigo_f_sobrou" disabled>
-                      </div>
+                      <div class="nova-grid-3 itens-campos">
+                        <div>
+                          <label>Código</label>
+                          <input type="text" id="codigo_f_sobrou" disabled>
+                        </div>
 
-                      <div>
-                        <label>Produto selecionado</label>
-                        <input type="text" id="nome_f_sobrou" disabled>
-                      </div>
+                        <div>
+                          <label>Produto selecionado</label>
+                          <input type="text" id="nome_f_sobrou" disabled>
+                        </div>
 
-                      <div>
-                        <label>Quantidade</label>
-                        <input type="number" id="quantidade_f_sobrou" min="1">
+                        <div>
+                          <label>Quantidade</label>
+                          <input type="number" id="quantidade_f_sobrou" min="1">
+                        </div>
                       </div>
 
                       <div class="alinha-bottom">
@@ -471,25 +479,40 @@
 
           <section class="nova-card">
             <div class="nova-section-title">
-              <h3>Descrição</h3>
+              <h3>Título / Assunto</h3>
+              <span>Antes da descrição do caso</span>
             </div>
 
             <div>
-              <label for="descricao">Descrição da ocorrência *</label>
-              <textarea id="descricao" name="descricao" rows="6" required></textarea>
+              <label for="titulo_visual_reforco">Título / Assunto *</label>
+              <input type="text" id="titulo_visual_reforco" value="" class="hidden-input-helper">
+              <input type="text" id="titulo" name="titulo" placeholder="Ex.: Faltou 3 pacotes / Divergência de itens" required>
+            </div>
+          </section>
+
+          <section class="nova-card">
+            <div class="nova-section-title">
+              <h3>Descrição do caso</h3>
+              <span>Antes dos anexos</span>
+            </div>
+
+            <div>
+              <label for="descricao">Descrição *</label>
+              <textarea id="descricao" name="descricao" rows="10" class="descricao-grande" required></textarea>
             </div>
           </section>
 
           <section class="nova-card">
             <div class="nova-section-title">
               <h3>Anexos</h3>
+              <span>Último bloco</span>
             </div>
 
             <div class="nova-grid-2">
               <div>
-                <label for="anexos">Selecionar arquivos</label>
+                <label for="anexos">Escolher arquivos</label>
                 <input type="file" id="anexos" name="anexos" multiple>
-                <small class="campo-ajuda">A gravação real de anexos entra na próxima etapa.</small>
+                <small class="campo-ajuda">Os anexos serão tratados na próxima etapa.</small>
               </div>
 
               <div>
