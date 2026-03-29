@@ -1,5 +1,21 @@
 const pool = require('../config/database')
 
+function somenteNumeros(valor = '') {
+  return String(valor).replace(/\D/g, '')
+}
+
+function parseBoolean(valor) {
+  if (valor === true || valor === 'true' || valor === '1' || valor === 1 || valor === 'Sim' || valor === 'sim') return true
+  if (valor === false || valor === 'false' || valor === '0' || valor === 0 || valor === 'Não' || valor === 'Nao' || valor === 'não' || valor === 'nao') return false
+  return null
+}
+
+function garantirArray(valor) {
+  if (!valor) return []
+  if (Array.isArray(valor)) return valor
+  return [valor]
+}
+
 exports.lista = async (req, res) => {
   try {
     const busca = req.query.busca || ''
@@ -111,12 +127,262 @@ exports.novaPage = async (req, res) => {
       ORDER BY nome ASC
     `)
 
+    const proximoNumeroResult = await pool.query(`
+      SELECT COALESCE(MAX(numero), 99) + 1 AS proximo_numero
+      FROM ocorrencias
+    `)
+
+    const produtosResult = await pool.query(`
+      SELECT id, codigo, nome, empresa
+      FROM produtos
+      WHERE ativo = TRUE
+      ORDER BY empresa ASC, nome ASC
+    `)
+
     return res.render('nova_ocorrencia', {
-      usuarios: usuariosResult.rows
+      usuarios: usuariosResult.rows,
+      produtos: produtosResult.rows,
+      proximoNumero: proximoNumeroResult.rows[0]?.proximo_numero || 100
     })
   } catch (error) {
     console.error('Erro ao carregar tela nova ocorrência:', error)
     return res.status(500).send('Erro ao abrir nova ocorrência')
+  }
+}
+
+exports.produtosPorEmpresa = async (req, res) => {
+  try {
+    const empresa = req.query.empresa || ''
+
+    if (!empresa || !['IVPLAST', 'VENANI'].includes(empresa)) {
+      return res.status(400).json({ erro: 'Empresa inválida.' })
+    }
+
+    const result = await pool.query(`
+      SELECT id, codigo, nome, empresa
+      FROM produtos
+      WHERE ativo = TRUE
+        AND empresa = $1
+      ORDER BY nome ASC
+    `, [empresa])
+
+    return res.json({ produtos: result.rows })
+  } catch (error) {
+    console.error('Erro ao buscar produtos:', error)
+    return res.status(500).json({ erro: 'Erro ao buscar produtos.' })
+  }
+}
+
+exports.criar = async (req, res) => {
+  const client = await pool.connect()
+
+  try {
+    await client.query('BEGIN')
+
+    const {
+      razao_social,
+      cnpj,
+      numero_pedido,
+      numero_nf,
+      tem_nfd,
+      numero_nfd,
+      faturado_por,
+      responsavel_usuario_id,
+      origem_erro,
+      titulo,
+      descricao,
+      itens_json,
+      faltou_volume,
+      quantidade_volumes_faltantes,
+      volume_saiu_correto_fabrica,
+      volume_saiu_correto_transmac,
+      faltou_item,
+      sobrou_item
+    } = req.body
+
+    if (!razao_social || !cnpj || !numero_pedido || !numero_nf) {
+      await client.query('ROLLBACK')
+      return res.status(400).json({ erro: 'Preencha todos os campos obrigatórios do bloco Cliente.' })
+    }
+
+    if (!faturado_por || !['IVPLAST', 'VENANI'].includes(faturado_por)) {
+      await client.query('ROLLBACK')
+      return res.status(400).json({ erro: 'Faturado por inválido.' })
+    }
+
+    if (!responsavel_usuario_id) {
+      await client.query('ROLLBACK')
+      return res.status(400).json({ erro: 'Responsável é obrigatório.' })
+    }
+
+    if (!origem_erro || !['Transportadora', 'Fábrica', 'Cliente', 'Vendedor', 'Outro'].includes(origem_erro)) {
+      await client.query('ROLLBACK')
+      return res.status(400).json({ erro: 'Origem do erro inválida.' })
+    }
+
+    if (!titulo || !descricao) {
+      await client.query('ROLLBACK')
+      return res.status(400).json({ erro: 'Título e descrição são obrigatórios.' })
+    }
+
+    const proximoNumeroResult = await client.query(`
+      SELECT COALESCE(MAX(numero), 99) + 1 AS proximo_numero
+      FROM ocorrencias
+    `)
+    const proximoNumero = proximoNumeroResult.rows[0]?.proximo_numero || 100
+
+    const statusResult = await client.query(`
+      SELECT id
+      FROM status
+      WHERE nome = 'Aberto'
+      LIMIT 1
+    `)
+
+    if (!statusResult.rows.length) {
+      await client.query('ROLLBACK')
+      return res.status(500).json({ erro: 'Status inicial "Aberto" não encontrado.' })
+    }
+
+    const statusId = statusResult.rows[0].id
+
+    const ocorrenciaResult = await client.query(`
+      INSERT INTO ocorrencias (
+        numero,
+        cliente,
+        descricao,
+        status,
+        criado_por,
+        razao_social,
+        cnpj,
+        numero_pedido,
+        numero_nf,
+        tem_nfd,
+        numero_nfd,
+        faturado_por,
+        responsavel_usuario_id,
+        origem_erro,
+        titulo,
+        status_id
+      )
+      VALUES (
+        $1, $2, $3, 'Aberto', $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
+      )
+      RETURNING id, numero
+    `, [
+      proximoNumero,
+      razao_social,
+      descricao,
+      req.session.usuario.id,
+      razao_social,
+      cnpj,
+      numero_pedido,
+      numero_nf,
+      parseBoolean(tem_nfd),
+      numero_nfd || null,
+      faturado_por,
+      responsavel_usuario_id,
+      origem_erro,
+      titulo,
+      statusId
+    ])
+
+    const ocorrenciaId = ocorrenciaResult.rows[0].id
+
+    await client.query(`
+      INSERT INTO historico_ocorrencias (
+        ocorrencia_id,
+        usuario_id,
+        acao,
+        tipo_evento,
+        titulo_evento,
+        descricao_evento
+      )
+      VALUES ($1, $2, $3, $4, $5, $6)
+    `, [
+      ocorrenciaId,
+      req.session.usuario.id,
+      'Criação da ocorrência',
+      'CRIACAO',
+      'Ocorrência aberta',
+      `Ocorrência ${proximoNumero} criada com status Aberto.`
+    ])
+
+    const deveCriarQuestionario = ['Transportadora', 'Fábrica'].includes(origem_erro)
+
+    if (deveCriarQuestionario) {
+      await client.query(`
+        INSERT INTO ocorrencia_questionario (
+          ocorrencia_id,
+          faltou_volume,
+          quantidade_volumes_faltantes,
+          volume_saiu_correto_fabrica,
+          volume_saiu_correto_transmac,
+          faltou_item,
+          sobrou_item
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `, [
+        ocorrenciaId,
+        parseBoolean(faltou_volume),
+        quantidade_volumes_faltantes ? parseInt(quantidade_volumes_faltantes, 10) : null,
+        parseBoolean(volume_saiu_correto_fabrica),
+        parseBoolean(volume_saiu_correto_transmac),
+        parseBoolean(faltou_item),
+        parseBoolean(sobrou_item)
+      ])
+    }
+
+    let itens = []
+    if (itens_json) {
+      try {
+        itens = JSON.parse(itens_json)
+      } catch (e) {
+        itens = []
+      }
+    }
+
+    if (Array.isArray(itens) && itens.length) {
+      for (const item of itens) {
+        if (!item) continue
+
+        await client.query(`
+          INSERT INTO ocorrencia_itens (
+            ocorrencia_id,
+            tipo_bloco,
+            empresa,
+            produto_id,
+            codigo_produto,
+            nome_produto,
+            quantidade
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `, [
+          ocorrenciaId,
+          item.tipo_bloco || 'principal',
+          faturado_por,
+          item.produto_id || null,
+          item.codigo_produto || null,
+          item.nome_produto || null,
+          item.quantidade || 0
+        ])
+      }
+    }
+
+    await client.query('COMMIT')
+
+    return res.status(201).json({
+      sucesso: true,
+      mensagem: 'Ocorrência criada com sucesso.',
+      ocorrencia_id: ocorrenciaId,
+      numero: proximoNumero,
+      redirect: '/ocorrencias'
+    })
+  } catch (error) {
+    await client.query('ROLLBACK')
+    console.error('Erro ao criar ocorrência:', error)
+    return res.status(500).json({ erro: 'Erro interno ao criar ocorrência.' })
+  } finally {
+    client.release()
   }
 }
 
