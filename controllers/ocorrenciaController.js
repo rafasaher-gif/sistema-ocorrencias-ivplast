@@ -1,8 +1,7 @@
+const crypto = require('crypto')
+const path = require('path')
 const pool = require('../config/database')
-
-function somenteNumeros(valor = '') {
-  return String(valor).replace(/\D/g, '')
-}
+const supabase = require('../config/supabase')
 
 function parseBoolean(valor) {
   if (valor === true || valor === 'true' || valor === '1' || valor === 1 || valor === 'Sim' || valor === 'sim') return true
@@ -10,10 +9,46 @@ function parseBoolean(valor) {
   return null
 }
 
-function garantirArray(valor) {
-  if (!valor) return []
-  if (Array.isArray(valor)) return valor
-  return [valor]
+function nomeArquivoSeguro(nome = '') {
+  return nome
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9._-]/g, '_')
+}
+
+async function uploadArquivosSupabase(ocorrenciaNumero, files = []) {
+  const bucket = process.env.SUPABASE_BUCKET
+  const enviados = []
+
+  for (const file of files) {
+    const extensao = path.extname(file.originalname || '')
+    const base = path.basename(file.originalname || 'arquivo', extensao)
+    const nomeSeguro = nomeArquivoSeguro(base)
+    const hash = crypto.randomBytes(8).toString('hex')
+    const nomeArmazenado = `ocorrencias/${ocorrenciaNumero}/${Date.now()}_${hash}_${nomeSeguro}${extensao}`
+
+    const { error } = await supabase.storage
+      .from(bucket)
+      .upload(nomeArmazenado, file.buffer, {
+        contentType: file.mimetype,
+        upsert: false
+      })
+
+    if (error) {
+      throw new Error(`Erro ao enviar anexo "${file.originalname}": ${error.message}`)
+    }
+
+    const { data: publicData } = supabase.storage.from(bucket).getPublicUrl(nomeArmazenado)
+
+    enviados.push({
+      nome_original: file.originalname,
+      nome_armazenado: nomeArmazenado,
+      url_arquivo: publicData?.publicUrl || nomeArmazenado,
+      tamanho_bytes: file.size
+    })
+  }
+
+  return enviados
 }
 
 exports.lista = async (req, res) => {
@@ -132,16 +167,8 @@ exports.novaPage = async (req, res) => {
       FROM ocorrencias
     `)
 
-    const produtosResult = await pool.query(`
-      SELECT id, codigo, nome, empresa
-      FROM produtos
-      WHERE ativo = TRUE
-      ORDER BY empresa ASC, nome ASC
-    `)
-
     return res.render('nova_ocorrencia', {
       usuarios: usuariosResult.rows,
-      produtos: produtosResult.rows,
       proximoNumero: proximoNumeroResult.rows[0]?.proximo_numero || 100
     })
   } catch (error) {
@@ -195,9 +222,7 @@ exports.criar = async (req, res) => {
       faltou_volume,
       quantidade_volumes_faltantes,
       volume_saiu_correto_fabrica,
-      volume_saiu_correto_transmac,
-      faltou_item,
-      sobrou_item
+      volume_saiu_correto_transmac
     } = req.body
 
     if (!razao_social || !cnpj || !numero_pedido || !numero_nf) {
@@ -223,6 +248,14 @@ exports.criar = async (req, res) => {
     if (!titulo || !descricao) {
       await client.query('ROLLBACK')
       return res.status(400).json({ erro: 'Título e descrição são obrigatórios.' })
+    }
+
+    const arquivos = Array.isArray(req.files) ? req.files : []
+    const totalBytes = arquivos.reduce((acc, file) => acc + (file.size || 0), 0)
+
+    if (totalBytes > 10 * 1024 * 1024) {
+      await client.query('ROLLBACK')
+      return res.status(400).json({ erro: 'O total de anexos por envio não pode ultrapassar 10 MB.' })
     }
 
     const proximoNumeroResult = await client.query(`
@@ -304,12 +337,20 @@ exports.criar = async (req, res) => {
       'Criação da ocorrência',
       'CRIACAO',
       'Ocorrência aberta',
-      `Ocorrência ${proximoNumero} criada com status Aberto.`
+      `Ocorrência ${proximoNumero} criada com status Aberto. Cliente: ${razao_social}. Origem: ${origem_erro}.`
     ])
 
     const deveCriarQuestionario = ['Transportadora', 'Fábrica'].includes(origem_erro)
 
     if (deveCriarQuestionario) {
+      const faltouItemGeral = (origem_erro === 'Transportadora')
+        ? (req.body.t_faltou_item === 'true' || req.body.t_sobrou_item === 'true')
+        : (req.body.f_faltou_item === 'true' || req.body.f_sobrou_item === 'true')
+
+      const sobrouItemGeral = (origem_erro === 'Transportadora')
+        ? req.body.t_sobrou_item === 'true'
+        : req.body.f_sobrou_item === 'true'
+
       await client.query(`
         INSERT INTO ocorrencia_questionario (
           ocorrencia_id,
@@ -327,8 +368,8 @@ exports.criar = async (req, res) => {
         quantidade_volumes_faltantes ? parseInt(quantidade_volumes_faltantes, 10) : null,
         parseBoolean(volume_saiu_correto_fabrica),
         parseBoolean(volume_saiu_correto_transmac),
-        parseBoolean(faltou_item),
-        parseBoolean(sobrou_item)
+        faltouItemGeral,
+        sobrouItemGeral
       ])
     }
 
@@ -359,11 +400,74 @@ exports.criar = async (req, res) => {
         `, [
           ocorrenciaId,
           item.tipo_bloco || 'principal',
-          faturado_por,
+          item.empresa || faturado_por,
           item.produto_id || null,
           item.codigo_produto || null,
           item.nome_produto || null,
           item.quantidade || 0
+        ])
+      }
+
+      await client.query(`
+        INSERT INTO historico_ocorrencias (
+          ocorrencia_id,
+          usuario_id,
+          acao,
+          tipo_evento,
+          titulo_evento,
+          descricao_evento
+        )
+        VALUES ($1, $2, $3, $4, $5, $6)
+      `, [
+        ocorrenciaId,
+        req.session.usuario.id,
+        'Itens registrados',
+        'ITENS',
+        'Itens incluídos na abertura',
+        `${itens.length} item(ns) registrado(s) na abertura da ocorrência.`
+      ])
+    }
+
+    if (arquivos.length) {
+      const anexosEnviados = await uploadArquivosSupabase(proximoNumero, arquivos)
+
+      for (const anexo of anexosEnviados) {
+        await client.query(`
+          INSERT INTO anexos (
+            ocorrencia_id,
+            nome_original,
+            nome_armazenado,
+            url_arquivo,
+            tamanho_bytes,
+            enviado_por_usuario_id
+          )
+          VALUES ($1, $2, $3, $4, $5, $6)
+        `, [
+          ocorrenciaId,
+          anexo.nome_original,
+          anexo.nome_armazenado,
+          anexo.url_arquivo,
+          anexo.tamanho_bytes,
+          req.session.usuario.id
+        ])
+
+        await client.query(`
+          INSERT INTO historico_ocorrencias (
+            ocorrencia_id,
+            usuario_id,
+            acao,
+            tipo_evento,
+            titulo_evento,
+            descricao_evento
+          )
+          VALUES ($1, $2, $3, $4, $5, $6)
+        `, [
+          ocorrenciaId,
+          req.session.usuario.id,
+          'Anexo incluído',
+          'ANEXO',
+          'Anexo adicionado na abertura',
+          `Arquivo anexado: ${anexo.nome_original}`
         ])
       }
     }
@@ -388,7 +492,99 @@ exports.criar = async (req, res) => {
 
 exports.detalhe = async (req, res) => {
   try {
-    return res.render('acompanhamento_ocorrencia', { id: req.params.id })
+    const ocorrenciaId = req.params.id
+
+    const ocorrenciaResult = await pool.query(`
+      SELECT
+        o.*,
+        s.nome AS status_nome,
+        u1.nome AS criado_por_nome,
+        u2.nome AS responsavel_nome
+      FROM ocorrencias o
+      LEFT JOIN status s ON s.id = o.status_id
+      LEFT JOIN usuarios u1 ON u1.id = o.criado_por
+      LEFT JOIN usuarios u2 ON u2.id = o.responsavel_usuario_id
+      WHERE o.id = $1
+      LIMIT 1
+    `, [ocorrenciaId])
+
+    if (!ocorrenciaResult.rows.length) {
+      return res.status(404).send('Ocorrência não encontrada')
+    }
+
+    const ocorrencia = ocorrenciaResult.rows[0]
+
+    const questionarioResult = await pool.query(`
+      SELECT *
+      FROM ocorrencia_questionario
+      WHERE ocorrencia_id = $1
+      LIMIT 1
+    `, [ocorrenciaId])
+
+    const itensResult = await pool.query(`
+      SELECT
+        id,
+        tipo_bloco,
+        empresa,
+        produto_id,
+        codigo_produto,
+        nome_produto,
+        quantidade,
+        criado_em
+      FROM ocorrencia_itens
+      WHERE ocorrencia_id = $1
+      ORDER BY id ASC
+    `, [ocorrenciaId])
+
+    const anexosResult = await pool.query(`
+      SELECT
+        id,
+        nome_original,
+        nome_armazenado,
+        url_arquivo,
+        tamanho_bytes,
+        enviado_em
+      FROM anexos
+      WHERE ocorrencia_id = $1
+      ORDER BY id ASC
+    `, [ocorrenciaId])
+
+    const historicoResult = await pool.query(`
+      SELECT
+        h.*,
+        u.nome AS usuario_nome,
+        ue.nome AS editado_por_nome
+      FROM historico_ocorrencias h
+      LEFT JOIN usuarios u ON u.id = h.usuario_id
+      LEFT JOIN usuarios ue ON ue.id = h.editado_por_usuario_id
+      WHERE h.ocorrencia_id = $1
+      ORDER BY h.criado_em ASC, h.id ASC
+    `, [ocorrenciaId])
+
+    const itensPorBloco = {
+      transportadora_faltou: [],
+      transportadora_sobrou: [],
+      fabrica_faltou: [],
+      fabrica_sobrou: [],
+      outros: []
+    }
+
+    for (const item of itensResult.rows) {
+      if (itensPorBloco[item.tipo_bloco]) {
+        itensPorBloco[item.tipo_bloco].push(item)
+      } else {
+        itensPorBloco.outros.push(item)
+      }
+    }
+
+    return res.render('acompanhamento_ocorrencia', {
+      ocorrencia,
+      questionario: questionarioResult.rows[0] || null,
+      itens: itensResult.rows,
+      itensPorBloco,
+      anexos: anexosResult.rows,
+      historico: historicoResult.rows
+    })
   } catch (error) {
     console.error('Erro ao abrir detalhe da ocorrência:', error)
     return res.status(500).send('Erro ao abrir ocorrência')
