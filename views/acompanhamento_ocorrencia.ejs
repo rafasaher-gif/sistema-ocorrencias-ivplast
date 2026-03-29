@@ -44,6 +44,45 @@
           </div>
         </section>
 
+        <% if (erro) { %>
+          <div class="alert-error"><%= erro %></div>
+        <% } %>
+
+        <% if (sucesso) { %>
+          <div class="alert-success"><%= sucesso %></div>
+        <% } %>
+
+        <section class="nova-card">
+          <div class="nova-section-title">
+            <h3>Atualizar ocorrência</h3>
+          </div>
+
+          <form method="POST" action="/ocorrencias/<%= ocorrencia.id %>/atualizar">
+            <div class="nova-grid-2">
+              <div>
+                <label for="novo_status">Novo status</label>
+                <select id="novo_status" name="novo_status">
+                  <option value="">Manter status atual</option>
+                  <% statusList.forEach(status => { %>
+                    <option value="<%= status.nome %>"><%= status.nome %></option>
+                  <% }) %>
+                </select>
+              </div>
+
+              <div></div>
+            </div>
+
+            <div class="top-gap">
+              <label for="comentario">Comentário / andamento *</label>
+              <textarea id="comentario" name="comentario" rows="5" required></textarea>
+            </div>
+
+            <div class="acoes-form top-gap">
+              <button type="submit" class="btn-primary">Registrar atualização</button>
+            </div>
+          </form>
+        </section>
+
         <section class="nova-card">
           <div class="nova-section-title">
             <h3>Dados principais</h3>
