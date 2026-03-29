@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
@@ -13,8 +12,96 @@
       <%- include('partials/header', { titulo: 'Lista de Ocorrências' }) %>
 
       <div class="card">
-        <p>Base do sistema online pronta.</p>
-        <p>Aqui entraremos com busca, filtros, tabela, status e progresso visual.</p>
+        <form method="GET" action="/ocorrencias" class="filtros-form">
+          <div class="filtro-linha">
+            <input
+              type="text"
+              name="busca"
+              placeholder="Pesquisar por número, cliente ou CNPJ"
+              value="<%= busca %>"
+            >
+
+            <select name="status">
+              <option value="">Todos os status</option>
+              <% statusList.forEach(item => { %>
+                <option value="<%= item.nome %>" <%= statusFiltro === item.nome ? 'selected' : '' %>>
+                  <%= item.nome %>
+                </option>
+              <% }) %>
+            </select>
+
+            <select name="ordem">
+              <option value="mais_antigo" <%= ordem === 'mais_antigo' ? 'selected' : '' %>>Mais antigo</option>
+              <option value="mais_novo" <%= ordem === 'mais_novo' ? 'selected' : '' %>>Mais novo</option>
+              <option value="a_z" <%= ordem === 'a_z' ? 'selected' : '' %>>A-Z</option>
+              <option value="z_a" <%= ordem === 'z_a' ? 'selected' : '' %>>Z-A</option>
+            </select>
+
+            <button type="submit" class="btn-primary btn-inline">Buscar</button>
+          </div>
+        </form>
+
+        <div class="resumo-topo">
+          <strong>Ocorrências não finalizadas: <%= totalAbertas %></strong>
+        </div>
+
+        <div class="table-wrap">
+          <table class="tabela-ocorrencias">
+            <thead>
+              <tr>
+                <th>Número</th>
+                <th>Data</th>
+                <th>Cliente</th>
+                <th>CNPJ</th>
+                <th>Pedido</th>
+                <th>Origem do erro</th>
+                <th>Responsável</th>
+                <th>Título / Assunto</th>
+                <th>Status</th>
+                <th>Ação</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% if (!ocorrencias.length) { %>
+                <tr>
+                  <td colspan="10">Nenhuma ocorrência encontrada.</td>
+                </tr>
+              <% } %>
+
+              <% ocorrencias.forEach(item => { %>
+                <tr class="<%= item.status_nome === 'Resolvido Aprovado' ? 'linha-finalizada' : '' %>">
+                  <td><%= item.numero || '' %></td>
+                  <td>
+                    <%= item.criado_em ? new Date(item.criado_em).toLocaleDateString('pt-BR') : '' %>
+                  </td>
+                  <td><%= item.cliente || '' %></td>
+                  <td><%= item.cnpj || '' %></td>
+                  <td><%= item.numero_pedido || '' %></td>
+                  <td><%= item.origem_erro || '' %></td>
+                  <td><%= item.responsavel_nome || '' %></td>
+                  <td><%= item.titulo || '' %></td>
+                  <td>
+                    <span class="status-chip"><%= item.status_nome || '' %></span>
+                  </td>
+                  <td>
+                    <a class="btn-abrir" href="/ocorrencias/<%= item.id %>">Abrir</a>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="paginacao">
+          <% for (let i = 1; i <= totalPaginas; i++) { %>
+            <a
+              class="pagina-link <%= i === pagina ? 'ativa' : '' %>"
+              href="/ocorrencias?busca=<%= encodeURIComponent(busca) %>&status=<%= encodeURIComponent(statusFiltro) %>&ordem=<%= encodeURIComponent(ordem) %>&pagina=<%= i %>"
+            >
+              <%= i %>
+            </a>
+          <% } %>
+        </div>
       </div>
     </main>
   </div>
