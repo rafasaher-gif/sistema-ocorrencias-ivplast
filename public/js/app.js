@@ -5,66 +5,80 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!form) return
 
   const cnpjInput = document.getElementById('cnpj')
-
-  const radiosNfd = document.querySelectorAll('input[name="tem_nfd"]')
   const numeroNfd = document.getElementById('numero_nfd')
+  const radiosNfd = document.querySelectorAll('input[name="tem_nfd"]')
 
   const origemErro = document.getElementById('origem_erro')
-  const cardDynamic = document.getElementById('cardDynamic')
-  const qTransportadora = document.getElementById('qTransportadora')
-  const qFabrica = document.getElementById('qFabrica')
-  const qSimples = document.getElementById('qSimples')
+  const cardQuestionario = document.getElementById('cardQuestionario')
+  const questionarioTransportadora = document.getElementById('questionarioTransportadora')
+  const questionarioFabrica = document.getElementById('questionarioFabrica')
+  const questionarioSimples = document.getElementById('questionarioSimples')
 
-  const radiosFaltouVolume = document.querySelectorAll('input[name="faltou_volume"]')
   const quantidadeVolumes = document.getElementById('quantidade_volumes_faltantes')
-
+  const radiosFaltouVolume = document.querySelectorAll('input[name="faltou_volume"]')
   const radiosFabricaOk = document.querySelectorAll('input[name="volume_saiu_correto_fabrica"]')
   const radiosTransmacOk = document.querySelectorAll('input[name="volume_saiu_correto_transmac"]')
-  const toastTransportadora = document.getElementById('toastTransportadora')
+
+  const alertaTransportadora = document.getElementById('alertaTransportadora')
+  const modalTransportadora = document.getElementById('modalTransportadora')
+  const btnFecharModalTransportadora = document.getElementById('btnFecharModalTransportadora')
 
   const faturadoPor = document.getElementById('faturado_por')
   const itensJson = document.getElementById('itens_json')
 
-  const builderConfigs = [
+  const blocosItens = [
     {
       radioName: 't_faltou_item',
-      wrapId: 'tItensFaltouWrap',
-      listId: 'tItensFaltouList',
-      selectId: 't_faltou_produto_select',
-      qtyId: 't_faltou_quantidade',
+      wrapId: 'wrap_t_faltou',
+      buscaId: 'busca_t_faltou',
+      listaId: 'lista_t_faltou',
+      codigoId: 'codigo_t_faltou',
+      nomeId: 'nome_t_faltou',
+      quantidadeId: 'quantidade_t_faltou',
       btnId: 'btnAddTFaltou',
+      tbodyId: 'tbody_t_faltou',
       tipo: 'transportadora_faltou'
     },
     {
       radioName: 't_sobrou_item',
-      wrapId: 'tItensSobrouWrap',
-      listId: 'tItensSobrouList',
-      selectId: 't_sobrou_produto_select',
-      qtyId: 't_sobrou_quantidade',
+      wrapId: 'wrap_t_sobrou',
+      buscaId: 'busca_t_sobrou',
+      listaId: 'lista_t_sobrou',
+      codigoId: 'codigo_t_sobrou',
+      nomeId: 'nome_t_sobrou',
+      quantidadeId: 'quantidade_t_sobrou',
       btnId: 'btnAddTSobrou',
+      tbodyId: 'tbody_t_sobrou',
       tipo: 'transportadora_sobrou'
     },
     {
       radioName: 'f_faltou_item',
-      wrapId: 'fItensFaltouWrap',
-      listId: 'fItensFaltouList',
-      selectId: 'f_faltou_produto_select',
-      qtyId: 'f_faltou_quantidade',
+      wrapId: 'wrap_f_faltou',
+      buscaId: 'busca_f_faltou',
+      listaId: 'lista_f_faltou',
+      codigoId: 'codigo_f_faltou',
+      nomeId: 'nome_f_faltou',
+      quantidadeId: 'quantidade_f_faltou',
       btnId: 'btnAddFFaltou',
+      tbodyId: 'tbody_f_faltou',
       tipo: 'fabrica_faltou'
     },
     {
       radioName: 'f_sobrou_item',
-      wrapId: 'fItensSobrouWrap',
-      listId: 'fItensSobrouList',
-      selectId: 'f_sobrou_produto_select',
-      qtyId: 'f_sobrou_quantidade',
+      wrapId: 'wrap_f_sobrou',
+      buscaId: 'busca_f_sobrou',
+      listaId: 'lista_f_sobrou',
+      codigoId: 'codigo_f_sobrou',
+      nomeId: 'nome_f_sobrou',
+      quantidadeId: 'quantidade_f_sobrou',
       btnId: 'btnAddFSobrou',
+      tbodyId: 'tbody_f_sobrou',
       tipo: 'fabrica_sobrou'
     }
   ]
 
-  const itensState = {
+  let produtosDisponiveis = []
+  const itensPorBloco = {
     transportadora_faltou: [],
     transportadora_sobrou: [],
     fabrica_faltou: [],
@@ -86,9 +100,8 @@ document.addEventListener('DOMContentLoaded', () => {
     return checked ? checked.value : ''
   }
 
-  function toggleNfd() {
-    const valor = getRadioValue('tem_nfd')
-    const habilitar = valor === 'true'
+  function atualizarNfd() {
+    const habilitar = getRadioValue('tem_nfd') === 'true'
     numeroNfd.disabled = !habilitar
     numeroNfd.required = habilitar
     if (!habilitar) numeroNfd.value = ''
@@ -97,60 +110,85 @@ document.addEventListener('DOMContentLoaded', () => {
   function atualizarQuestionario() {
     const origem = origemErro.value
 
-    cardDynamic.classList.add('hidden')
-    qTransportadora.classList.add('hidden')
-    qFabrica.classList.add('hidden')
-    qSimples.classList.add('hidden')
+    cardQuestionario.classList.add('hidden')
+    questionarioTransportadora.classList.add('hidden')
+    questionarioFabrica.classList.add('hidden')
+    questionarioSimples.classList.add('hidden')
 
     if (!origem) return
 
-    cardDynamic.classList.remove('hidden')
+    cardQuestionario.classList.remove('hidden')
 
     if (origem === 'Transportadora') {
-      qTransportadora.classList.remove('hidden')
+      questionarioTransportadora.classList.remove('hidden')
       return
     }
 
     if (origem === 'Fábrica') {
-      qFabrica.classList.remove('hidden')
+      questionarioFabrica.classList.remove('hidden')
       return
     }
 
-    qSimples.classList.remove('hidden')
+    questionarioSimples.classList.remove('hidden')
   }
 
-  function toggleQtdVolumes() {
-    const valor = getRadioValue('faltou_volume')
-    const habilitar = valor === 'true'
+  function atualizarQtdVolumes() {
+    const habilitar = getRadioValue('faltou_volume') === 'true'
     quantidadeVolumes.disabled = !habilitar
     if (!habilitar) quantidadeVolumes.value = ''
   }
 
-  function atualizarToastTransportadora() {
+  let modalJaMostrado = false
+
+  function atualizarAlertaTransportadora() {
     const fabricaOk = getRadioValue('volume_saiu_correto_fabrica') === 'true'
     const transmacOk = getRadioValue('volume_saiu_correto_transmac') === 'true'
-    toastTransportadora.classList.toggle('hidden', !(fabricaOk && transmacOk))
+    const mostrar = fabricaOk && transmacOk
+
+    alertaTransportadora.classList.toggle('hidden', !mostrar)
+
+    if (mostrar && !modalJaMostrado) {
+      modalTransportadora.classList.remove('hidden')
+      modalJaMostrado = true
+    }
+
+    if (!mostrar) {
+      modalJaMostrado = false
+    }
   }
 
-  function flattenItens() {
+  function fecharModalTransportadora() {
+    modalTransportadora.classList.add('hidden')
+  }
+
+  function todosItens() {
     return [
-      ...itensState.transportadora_faltou,
-      ...itensState.transportadora_sobrou,
-      ...itensState.fabrica_faltou,
-      ...itensState.fabrica_sobrou
+      ...itensPorBloco.transportadora_faltou,
+      ...itensPorBloco.transportadora_sobrou,
+      ...itensPorBloco.fabrica_faltou,
+      ...itensPorBloco.fabrica_sobrou
     ]
   }
 
   function atualizarItensJson() {
-    itensJson.value = JSON.stringify(flattenItens())
+    itensJson.value = JSON.stringify(todosItens())
   }
 
-  function renderList(tipo, tbody) {
-    const itens = itensState[tipo]
+  function limparAutocomplete(cfg) {
+    document.getElementById(cfg.buscaId).value = ''
+    document.getElementById(cfg.codigoId).value = ''
+    document.getElementById(cfg.nomeId).value = ''
+    document.getElementById(cfg.listaId).innerHTML = ''
+  }
+
+  function renderTabela(tipo, tbodyId) {
+    const tbody = document.getElementById(tbodyId)
+    const itens = itensPorBloco[tipo]
+
     tbody.innerHTML = ''
 
     if (!itens.length) {
-      tbody.innerHTML = '<tr class="sem-itens-row"><td colspan="5">Nenhum item adicionado.</td></tr>'
+      tbody.innerHTML = '<tr><td colspan="5">Nenhum item adicionado.</td></tr>'
       return
     }
 
@@ -167,98 +205,122 @@ document.addEventListener('DOMContentLoaded', () => {
     })
   }
 
-  async function carregarProdutosParaSelect(select, empresa) {
-    select.innerHTML = '<option value="">Carregando...</option>'
+  function renderAutocomplete(cfg, termo) {
+    const lista = document.getElementById(cfg.listaId)
+    lista.innerHTML = ''
+
+    if (!termo || termo.trim().length < 1) {
+      return
+    }
+
+    const termoLower = termo.toLowerCase()
+
+    const encontrados = produtosDisponiveis.filter(produto =>
+      String(produto.codigo).toLowerCase().includes(termoLower) ||
+      String(produto.nome).toLowerCase().includes(termoLower)
+    ).slice(0, 8)
+
+    if (!encontrados.length) {
+      return
+    }
+
+    encontrados.forEach(produto => {
+      const item = document.createElement('button')
+      item.type = 'button'
+      item.className = 'autocomplete-item'
+      item.textContent = `${produto.codigo} - ${produto.nome}`
+
+      item.addEventListener('click', () => {
+        document.getElementById(cfg.buscaId).value = `${produto.codigo} - ${produto.nome}`
+        document.getElementById(cfg.codigoId).value = produto.codigo
+        document.getElementById(cfg.nomeId).value = produto.nome
+        document.getElementById(cfg.buscaId).dataset.produtoId = produto.id
+        lista.innerHTML = ''
+      })
+
+      lista.appendChild(item)
+    })
+  }
+
+  async function carregarProdutos() {
+    const empresa = faturadoPor.value
+
+    produtosDisponiveis = []
 
     if (!empresa) {
-      select.innerHTML = '<option value="">Selecione o faturado por primeiro</option>'
+      blocosItens.forEach(cfg => limparAutocomplete(cfg))
       return
     }
 
     try {
       const response = await fetch(`/ocorrencias/produtos?empresa=${encodeURIComponent(empresa)}`)
       const data = await response.json()
+      produtosDisponiveis = Array.isArray(data.produtos) ? data.produtos : []
 
-      select.innerHTML = '<option value="">Selecione</option>'
-
-      if (!data.produtos || !data.produtos.length) {
-        select.innerHTML = '<option value="">Nenhum produto encontrado</option>'
-        return
-      }
-
-      data.produtos.forEach(produto => {
-        const option = document.createElement('option')
-        option.value = produto.id
-        option.dataset.codigo = produto.codigo
-        option.dataset.nome = produto.nome
-        option.dataset.empresa = produto.empresa
-        option.textContent = `${produto.codigo} - ${produto.nome}`
-        select.appendChild(option)
-      })
+      blocosItens.forEach(cfg => limparAutocomplete(cfg))
     } catch (error) {
-      select.innerHTML = '<option value="">Erro ao carregar produtos</option>'
+      produtosDisponiveis = []
+      blocosItens.forEach(cfg => limparAutocomplete(cfg))
     }
   }
 
-  async function carregarTodosProdutos() {
-    const empresa = faturadoPor.value
-
-    for (const cfg of builderConfigs) {
-      const select = document.getElementById(cfg.selectId)
-      await carregarProdutosParaSelect(select, empresa)
-    }
-  }
-
-  function toggleWrapByRadio(cfg) {
-    const valor = getRadioValue(cfg.radioName)
+  function atualizarExibicaoBlocoItens(cfg) {
     const wrap = document.getElementById(cfg.wrapId)
-    wrap.classList.toggle('hidden', valor !== 'true')
+    const mostrar = getRadioValue(cfg.radioName) === 'true'
+    wrap.classList.toggle('hidden', !mostrar)
   }
 
   function adicionarItem(cfg) {
-    const select = document.getElementById(cfg.selectId)
-    const qty = document.getElementById(cfg.qtyId)
-    const selected = select.options[select.selectedIndex]
+    const produtoId = document.getElementById(cfg.buscaId).dataset.produtoId
+    const codigo = document.getElementById(cfg.codigoId).value
+    const nome = document.getElementById(cfg.nomeId).value
+    const quantidade = document.getElementById(cfg.quantidadeId).value
 
     if (!faturadoPor.value) {
       alert('Selecione primeiro o campo "Faturado por".')
       return
     }
 
-    if (!select.value) {
-      alert('Selecione um produto.')
+    if (!produtoId || !codigo || !nome) {
+      alert('Selecione um produto na busca.')
       return
     }
 
-    if (!qty.value || Number(qty.value) <= 0) {
+    if (!quantidade || Number(quantidade) <= 0) {
       alert('Informe uma quantidade válida.')
       return
     }
 
-    itensState[cfg.tipo].push({
+    itensPorBloco[cfg.tipo].push({
       tipo_bloco: cfg.tipo,
-      produto_id: Number(select.value),
-      codigo_produto: selected.dataset.codigo,
-      nome_produto: selected.dataset.nome,
-      empresa: selected.dataset.empresa,
-      quantidade: Number(qty.value)
+      produto_id: Number(produtoId),
+      codigo_produto: codigo,
+      nome_produto: nome,
+      empresa: faturadoPor.value,
+      quantidade: Number(quantidade)
     })
 
-    const tbody = document.getElementById(cfg.listId)
-    renderList(cfg.tipo, tbody)
+    renderTabela(cfg.tipo, cfg.tbodyId)
     atualizarItensJson()
-
-    select.value = ''
-    qty.value = ''
+    limparAutocomplete(cfg)
+    document.getElementById(cfg.quantidadeId).value = ''
   }
 
-  function bindConfig(cfg) {
+  function bindBloco(cfg) {
     const radios = document.querySelectorAll(`input[name="${cfg.radioName}"]`)
+    const busca = document.getElementById(cfg.buscaId)
     const btn = document.getElementById(cfg.btnId)
-    const tbody = document.getElementById(cfg.listId)
+    const tbody = document.getElementById(cfg.tbodyId)
 
     radios.forEach(r => {
-      r.addEventListener('change', () => toggleWrapByRadio(cfg))
+      r.addEventListener('change', () => atualizarExibicaoBlocoItens(cfg))
+    })
+
+    busca.addEventListener('input', () => {
+      busca.dataset.produtoId = ''
+      document.getElementById(cfg.codigoId).value = ''
+      document.getElementById(cfg.nomeId).value = ''
+      renderAutocomplete(cfg, busca.value)
     })
 
     btn.addEventListener('click', () => adicionarItem(cfg))
@@ -268,31 +330,42 @@ document.addEventListener('DOMContentLoaded', () => {
       if (e.target.dataset.tipo !== cfg.tipo) return
 
       const index = Number(e.target.dataset.index)
-      itensState[cfg.tipo].splice(index, 1)
-      renderList(cfg.tipo, tbody)
+      itensPorBloco[cfg.tipo].splice(index, 1)
+      renderTabela(cfg.tipo, cfg.tbodyId)
       atualizarItensJson()
     })
 
-    toggleWrapByRadio(cfg)
-    renderList(cfg.tipo, tbody)
+    atualizarExibicaoBlocoItens(cfg)
+    renderTabela(cfg.tipo, cfg.tbodyId)
   }
 
-  radiosNfd.forEach(r => r.addEventListener('change', toggleNfd))
-  radiosFaltouVolume.forEach(r => r.addEventListener('change', toggleQtdVolumes))
-  radiosFabricaOk.forEach(r => r.addEventListener('change', atualizarToastTransportadora))
-  radiosTransmacOk.forEach(r => r.addEventListener('change', atualizarToastTransportadora))
+  radiosNfd.forEach(r => r.addEventListener('change', atualizarNfd))
+  radiosFaltouVolume.forEach(r => r.addEventListener('change', atualizarQtdVolumes))
+  radiosFabricaOk.forEach(r => r.addEventListener('change', atualizarAlertaTransportadora))
+  radiosTransmacOk.forEach(r => r.addEventListener('change', atualizarAlertaTransportadora))
+
   origemErro.addEventListener('change', atualizarQuestionario)
+
   faturadoPor.addEventListener('change', async () => {
-    Object.keys(itensState).forEach(k => itensState[k] = [])
-    await carregarTodosProdutos()
-    builderConfigs.forEach(cfg => {
-      const tbody = document.getElementById(cfg.listId)
-      renderList(cfg.tipo, tbody)
+    Object.keys(itensPorBloco).forEach(chave => {
+      itensPorBloco[chave] = []
     })
+
+    await carregarProdutos()
+
+    blocosItens.forEach(cfg => {
+      renderTabela(cfg.tipo, cfg.tbodyId)
+    })
+
     atualizarItensJson()
   })
 
-  builderConfigs.forEach(bindConfig)
+  btnFecharModalTransportadora.addEventListener('click', fecharModalTransportadora)
+  modalTransportadora.addEventListener('click', (e) => {
+    if (e.target === modalTransportadora) fecharModalTransportadora()
+  })
+
+  blocosItens.forEach(bindBloco)
 
   cnpjInput.addEventListener('input', () => {
     cnpjInput.value = aplicarMascaraCnpj(cnpjInput.value)
@@ -338,9 +411,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   })
 
-  toggleNfd()
-  toggleQtdVolumes()
-  atualizarToastTransportadora()
+  atualizarNfd()
   atualizarQuestionario()
+  atualizarQtdVolumes()
+  atualizarAlertaTransportadora()
   atualizarItensJson()
 })
