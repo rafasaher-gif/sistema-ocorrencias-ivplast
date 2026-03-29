@@ -178,6 +178,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById(cfg.buscaId).value = ''
     document.getElementById(cfg.codigoId).value = ''
     document.getElementById(cfg.nomeId).value = ''
+    document.getElementById(cfg.buscaId).dataset.produtoId = ''
     document.getElementById(cfg.listaId).innerHTML = ''
   }
 
@@ -209,20 +210,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const lista = document.getElementById(cfg.listaId)
     lista.innerHTML = ''
 
-    if (!termo || termo.trim().length < 1) {
-      return
-    }
+    if (!termo || termo.trim().length < 1) return
 
-    const termoLower = termo.toLowerCase()
+    const termoLower = termo.toLowerCase().trim()
 
-    const encontrados = produtosDisponiveis.filter(produto =>
-      String(produto.codigo).toLowerCase().includes(termoLower) ||
-      String(produto.nome).toLowerCase().includes(termoLower)
-    ).slice(0, 8)
+    const encontrados = produtosDisponiveis.filter(produto => {
+      const codigo = String(produto.codigo || '').toLowerCase()
+      const nome = String(produto.nome || '').toLowerCase()
+      return codigo.includes(termoLower) || nome.includes(termoLower)
+    }).slice(0, 10)
 
-    if (!encontrados.length) {
-      return
-    }
+    if (!encontrados.length) return
 
     encontrados.forEach(produto => {
       const item = document.createElement('button')
@@ -244,7 +242,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function carregarProdutos() {
     const empresa = faturadoPor.value
-
     produtosDisponiveis = []
 
     if (!empresa) {
@@ -256,7 +253,6 @@ document.addEventListener('DOMContentLoaded', () => {
       const response = await fetch(`/ocorrencias/produtos?empresa=${encodeURIComponent(empresa)}`)
       const data = await response.json()
       produtosDisponiveis = Array.isArray(data.produtos) ? data.produtos : []
-
       blocosItens.forEach(cfg => limparAutocomplete(cfg))
     } catch (error) {
       produtosDisponiveis = []
@@ -323,6 +319,10 @@ document.addEventListener('DOMContentLoaded', () => {
       renderAutocomplete(cfg, busca.value)
     })
 
+    busca.addEventListener('focus', () => {
+      renderAutocomplete(cfg, busca.value)
+    })
+
     btn.addEventListener('click', () => adicionarItem(cfg))
 
     tbody.addEventListener('click', (e) => {
@@ -363,6 +363,17 @@ document.addEventListener('DOMContentLoaded', () => {
   btnFecharModalTransportadora.addEventListener('click', fecharModalTransportadora)
   modalTransportadora.addEventListener('click', (e) => {
     if (e.target === modalTransportadora) fecharModalTransportadora()
+  })
+
+  document.addEventListener('click', (e) => {
+    blocosItens.forEach(cfg => {
+      const wrap = document.getElementById(cfg.listaId)
+      const input = document.getElementById(cfg.buscaId)
+      if (!wrap || !input) return
+      if (!wrap.contains(e.target) && e.target !== input) {
+        wrap.innerHTML = ''
+      }
+    })
   })
 
   blocosItens.forEach(bindBloco)
