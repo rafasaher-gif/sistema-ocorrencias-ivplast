@@ -11,26 +11,40 @@
     <main class="main-content">
       <%- include('partials/header', { titulo: 'Nova Ocorrência' }) %>
 
-      <div class="nova-wrap">
-        <form id="formNovaOcorrencia">
-          <div class="topbar-form">
-            <div>
-              <div class="topbar-title">Abrir nova ocorrência</div>
-              <div class="topbar-sub">Preencha os dados do caso conforme a origem do erro.</div>
-            </div>
-            <span class="pill"><span class="dot primary"></span> Nº <%= proximoNumero %></span>
-          </div>
-
+      <div class="nova-page">
+        <form id="formNovaOcorrencia" class="nova-form">
           <input type="hidden" id="itens_json" name="itens_json">
 
-          <!-- 1) CLIENTE -->
-          <div class="card-form">
-            <div class="section-head client">
-              <div>👤 Cliente</div>
-              <small>Dados do cliente/pedido</small>
+          <section class="nova-card destaque">
+            <div class="nova-card-header">
+              <div>
+                <h3>Abertura da ocorrência</h3>
+                <p>Preencha os dados do caso conforme a origem do erro.</p>
+              </div>
+              <div class="numero-badge">
+                <span>Nº da ocorrência</span>
+                <strong><%= proximoNumero %></strong>
+              </div>
             </div>
 
-            <div class="grid-2">
+            <div class="nova-grid-2">
+              <div>
+                <label>Número da ocorrência</label>
+                <input type="text" value="<%= proximoNumero %>" disabled>
+              </div>
+              <div>
+                <label>Status inicial</label>
+                <input type="text" value="Aberto" disabled>
+              </div>
+            </div>
+          </section>
+
+          <section class="nova-card">
+            <div class="nova-section-title">
+              <h3>Cliente</h3>
+            </div>
+
+            <div class="nova-grid-2">
               <div>
                 <label for="razao_social">Razão Social *</label>
                 <input type="text" id="razao_social" name="razao_social" required>
@@ -40,9 +54,7 @@
                 <label for="cnpj">CNPJ *</label>
                 <input type="text" id="cnpj" name="cnpj" maxlength="18" placeholder="00.000.000/0000-00" required>
               </div>
-            </div>
 
-            <div class="grid-2">
               <div>
                 <label for="numero_pedido">Número do Pedido *</label>
                 <input type="text" id="numero_pedido" name="numero_pedido" required>
@@ -53,27 +65,25 @@
                 <input type="text" id="numero_nf" name="numero_nf" required>
               </div>
             </div>
-          </div>
+          </section>
 
-          <!-- 2) NFD -->
-          <div class="card-form">
-            <div class="section-head nfd">
-              <div>🧾 NFD</div>
-              <small>Sempre visível</small>
+          <section class="nova-card">
+            <div class="nova-section-title">
+              <h3>NFD</h3>
             </div>
 
-            <div class="grid-2">
+            <div class="nova-grid-2">
               <div>
                 <label>Cliente já emitiu NFD? *</label>
-                <div class="radio-row">
-                  <label class="radio-box">
+                <div class="radio-group">
+                  <label class="radio-option">
                     <input type="radio" name="tem_nfd" value="false" checked>
-                    <strong>Não</strong>
+                    <span>Não</span>
                   </label>
 
-                  <label class="radio-box">
+                  <label class="radio-option">
                     <input type="radio" name="tem_nfd" value="true">
-                    <strong>Sim</strong>
+                    <span>Sim</span>
                   </label>
                 </div>
               </div>
@@ -81,19 +91,17 @@
               <div>
                 <label for="numero_nfd">Número da NFD *</label>
                 <input type="text" id="numero_nfd" name="numero_nfd" disabled>
-                <div class="field-hint">Habilita somente quando marcar “Sim”.</div>
+                <small class="campo-ajuda">Este campo só habilita quando marcar “Sim”.</small>
               </div>
             </div>
-          </div>
+          </section>
 
-          <!-- 3) CLASSIFICAÇÃO -->
-          <div class="card-form">
-            <div class="section-head classif">
-              <div>🏷️ Classificação</div>
-              <small>Quem faturou / responsável / origem</small>
+          <section class="nova-card">
+            <div class="nova-section-title">
+              <h3>Classificação</h3>
             </div>
 
-            <div class="grid-2">
+            <div class="nova-grid-2">
               <div>
                 <label for="faturado_por">Faturado por *</label>
                 <select id="faturado_por" name="faturado_por" required>
@@ -101,7 +109,7 @@
                   <option value="IVPLAST">IVPLAST</option>
                   <option value="VENANI">VENANI</option>
                 </select>
-                <div class="field-hint">A lista de itens muda conforme esta seleção.</div>
+                <small class="campo-ajuda">A lista de itens muda conforme esta seleção.</small>
               </div>
 
               <div>
@@ -113,9 +121,7 @@
                   <% }) %>
                 </select>
               </div>
-            </div>
 
-            <div class="grid-2">
               <div>
                 <label for="origem_erro">Origem do erro *</label>
                 <select id="origem_erro" name="origem_erro" required>
@@ -133,338 +139,357 @@
                 <input type="text" id="titulo" name="titulo" placeholder="Ex.: Faltou 3 pacotes / Divergência de itens" required>
               </div>
             </div>
-          </div>
+          </section>
 
-          <!-- 4) QUESTIONÁRIO DINÂMICO -->
-          <div class="card-form hidden" id="cardDynamic">
-            <div class="section-head dynamic">
-              <div>🧩 Questionário dinâmico</div>
-              <small>Conforme a origem do erro</small>
+          <section class="nova-card hidden" id="cardQuestionario">
+            <div class="nova-section-title">
+              <h3>Questionário dinâmico</h3>
             </div>
 
-            <!-- TRANSPORTADORA -->
-            <div id="qTransportadora" class="box-form hidden">
-              <div class="box-title">
-                <span>📦 Questionário — Transportadora</span>
-                <span class="tag-ui">Checklist</span>
-              </div>
+            <div id="questionarioTransportadora" class="hidden">
+              <div class="subcard">
+                <h4>Transportadora</h4>
 
-              <div class="grid-2">
-                <div>
-                  <label>Faltou algum volume?</label>
-                  <div class="radio-row">
-                    <label class="radio-box">
-                      <input type="radio" name="faltou_volume" value="false" checked>
-                      <strong>Não</strong>
-                    </label>
+                <div class="nova-grid-2">
+                  <div>
+                    <label>Faltou algum volume?</label>
+                    <div class="radio-group">
+                      <label class="radio-option">
+                        <input type="radio" name="faltou_volume" value="false" checked>
+                        <span>Não</span>
+                      </label>
+                      <label class="radio-option">
+                        <input type="radio" name="faltou_volume" value="true">
+                        <span>Sim</span>
+                      </label>
+                    </div>
+                  </div>
 
-                    <label class="radio-box">
-                      <input type="radio" name="faltou_volume" value="true">
-                      <strong>Sim</strong>
-                    </label>
+                  <div>
+                    <label for="quantidade_volumes_faltantes">Quantidade de volumes faltantes</label>
+                    <input type="number" id="quantidade_volumes_faltantes" name="quantidade_volumes_faltantes" min="1" disabled>
+                  </div>
+
+                  <div>
+                    <label>Volume saiu correto da Fábrica?</label>
+                    <div class="radio-group">
+                      <label class="radio-option">
+                        <input type="radio" name="volume_saiu_correto_fabrica" value="false" checked>
+                        <span>Não</span>
+                      </label>
+                      <label class="radio-option">
+                        <input type="radio" name="volume_saiu_correto_fabrica" value="true">
+                        <span>Sim</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label>Volume saiu correto da Transmac?</label>
+                    <div class="radio-group">
+                      <label class="radio-option">
+                        <input type="radio" name="volume_saiu_correto_transmac" value="false" checked>
+                        <span>Não</span>
+                      </label>
+                      <label class="radio-option">
+                        <input type="radio" name="volume_saiu_correto_transmac" value="true">
+                        <span>Sim</span>
+                      </label>
+                    </div>
                   </div>
                 </div>
 
-                <div>
-                  <label for="quantidade_volumes_faltantes">Qtde de volumes faltantes</label>
-                  <input type="number" id="quantidade_volumes_faltantes" name="quantidade_volumes_faltantes" min="0" step="1" disabled>
+                <div id="alertaTransportadora" class="alerta-sistema hidden">
+                  Se o volume saiu correto da Fábrica e da Transmac, orientar verificação com a transportadora do cliente.
                 </div>
-              </div>
 
-              <div class="divider-line"></div>
+                <div class="subcard itens-subcard">
+                  <div class="subcard-header">
+                    <h4>Itens que faltaram</h4>
+                    <div class="radio-group">
+                      <label class="radio-option">
+                        <input type="radio" name="t_faltou_item" value="false" checked>
+                        <span>Não</span>
+                      </label>
+                      <label class="radio-option">
+                        <input type="radio" name="t_faltou_item" value="true">
+                        <span>Sim</span>
+                      </label>
+                    </div>
+                  </div>
 
-              <div class="grid-2">
-                <div>
-                  <label>Volume saiu correto da Fábrica?</label>
-                  <div class="radio-row">
-                    <label class="radio-box">
-                      <input type="radio" name="volume_saiu_correto_fabrica" value="false" checked>
-                      <strong>Não</strong>
-                    </label>
+                  <div id="wrap_t_faltou" class="hidden">
+                    <div class="item-builder">
+                      <div class="autocomplete-wrap">
+                        <label>Produto</label>
+                        <input type="text" id="busca_t_faltou" placeholder="Digite código ou nome do produto">
+                        <div class="autocomplete-list" id="lista_t_faltou"></div>
+                      </div>
 
-                    <label class="radio-box">
-                      <input type="radio" name="volume_saiu_correto_fabrica" value="true">
-                      <strong>Sim</strong>
-                    </label>
+                      <div>
+                        <label>Código</label>
+                        <input type="text" id="codigo_t_faltou" disabled>
+                      </div>
+
+                      <div>
+                        <label>Produto selecionado</label>
+                        <input type="text" id="nome_t_faltou" disabled>
+                      </div>
+
+                      <div>
+                        <label>Quantidade</label>
+                        <input type="number" id="quantidade_t_faltou" min="1">
+                      </div>
+
+                      <div class="alinha-bottom">
+                        <button type="button" class="btn-primary btn-inline" id="btnAddTFaltou">Adicionar item</button>
+                      </div>
+                    </div>
+
+                    <div class="table-wrap top-gap">
+                      <table class="tabela-ocorrencias">
+                        <thead>
+                          <tr>
+                            <th>Código</th>
+                            <th>Produto</th>
+                            <th>Empresa</th>
+                            <th>Quantidade</th>
+                            <th>Ação</th>
+                          </tr>
+                        </thead>
+                        <tbody id="tbody_t_faltou">
+                          <tr><td colspan="5">Nenhum item adicionado.</td></tr>
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
 
-                <div>
-                  <label>Volume saiu correto da Transmac?</label>
-                  <div class="radio-row">
-                    <label class="radio-box">
-                      <input type="radio" name="volume_saiu_correto_transmac" value="false" checked>
-                      <strong>Não</strong>
-                    </label>
-
-                    <label class="radio-box">
-                      <input type="radio" name="volume_saiu_correto_transmac" value="true">
-                      <strong>Sim</strong>
-                    </label>
+                <div class="subcard itens-subcard">
+                  <div class="subcard-header">
+                    <h4>Itens que sobraram</h4>
+                    <div class="radio-group">
+                      <label class="radio-option">
+                        <input type="radio" name="t_sobrou_item" value="false" checked>
+                        <span>Não</span>
+                      </label>
+                      <label class="radio-option">
+                        <input type="radio" name="t_sobrou_item" value="true">
+                        <span>Sim</span>
+                      </label>
+                    </div>
                   </div>
-                </div>
-              </div>
 
-              <div id="toastTransportadora" class="toast-ui hidden">
-                ✅ Fábrica e Transmac deram OK.<br>
-                <b>Favor conferir com a transportadora do cliente</b> se o volume faltante está com ela.
-              </div>
+                  <div id="wrap_t_sobrou" class="hidden">
+                    <div class="item-builder">
+                      <div class="autocomplete-wrap">
+                        <label>Produto</label>
+                        <input type="text" id="busca_t_sobrou" placeholder="Digite código ou nome do produto">
+                        <div class="autocomplete-list" id="lista_t_sobrou"></div>
+                      </div>
 
-              <div class="divider-line"></div>
+                      <div>
+                        <label>Código</label>
+                        <input type="text" id="codigo_t_sobrou" disabled>
+                      </div>
 
-              <div class="grid-2">
-                <div>
-                  <label>Faltou item?</label>
-                  <div class="radio-row">
-                    <label class="radio-box">
-                      <input type="radio" name="t_faltou_item" value="false" checked>
-                      <strong>Não</strong>
-                    </label>
+                      <div>
+                        <label>Produto selecionado</label>
+                        <input type="text" id="nome_t_sobrou" disabled>
+                      </div>
 
-                    <label class="radio-box">
-                      <input type="radio" name="t_faltou_item" value="true">
-                      <strong>Sim</strong>
-                    </label>
+                      <div>
+                        <label>Quantidade</label>
+                        <input type="number" id="quantidade_t_sobrou" min="1">
+                      </div>
+
+                      <div class="alinha-bottom">
+                        <button type="button" class="btn-primary btn-inline" id="btnAddTSobrou">Adicionar item</button>
+                      </div>
+                    </div>
+
+                    <div class="table-wrap top-gap">
+                      <table class="tabela-ocorrencias">
+                        <thead>
+                          <tr>
+                            <th>Código</th>
+                            <th>Produto</th>
+                            <th>Empresa</th>
+                            <th>Quantidade</th>
+                            <th>Ação</th>
+                          </tr>
+                        </thead>
+                        <tbody id="tbody_t_sobrou">
+                          <tr><td colspan="5">Nenhum item adicionado.</td></tr>
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
-                </div>
-                <div></div>
-              </div>
-
-              <div class="items-card hidden" id="tItensFaltouWrap">
-                <div class="items-head">
-                  <div class="left">📋 Itens que faltaram (Transportadora)</div>
-                </div>
-
-                <div class="item-builder">
-                  <select id="t_faltou_produto_select">
-                    <option value="">Selecione o faturado por primeiro</option>
-                  </select>
-                  <input type="number" id="t_faltou_quantidade" min="1" step="1" placeholder="Quantidade">
-                  <button type="button" class="btn-primary btn-inline" id="btnAddTFaltou">+ Adicionar item</button>
-                </div>
-
-                <div class="table-wrap top-gap">
-                  <table class="tabela-ocorrencias">
-                    <thead>
-                      <tr>
-                        <th>Código</th>
-                        <th>Produto</th>
-                        <th>Empresa</th>
-                        <th>Quantidade</th>
-                        <th>Ação</th>
-                      </tr>
-                    </thead>
-                    <tbody id="tItensFaltouList">
-                      <tr class="sem-itens-row">
-                        <td colspan="5">Nenhum item adicionado.</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              <div class="grid-2 top-gap">
-                <div>
-                  <label>Sobrou item?</label>
-                  <div class="radio-row">
-                    <label class="radio-box">
-                      <input type="radio" name="t_sobrou_item" value="false" checked>
-                      <strong>Não</strong>
-                    </label>
-
-                    <label class="radio-box">
-                      <input type="radio" name="t_sobrou_item" value="true">
-                      <strong>Sim</strong>
-                    </label>
-                  </div>
-                </div>
-                <div></div>
-              </div>
-
-              <div class="items-card hidden" id="tItensSobrouWrap">
-                <div class="items-head">
-                  <div class="left">📋 Itens que sobraram (Transportadora)</div>
-                </div>
-
-                <div class="item-builder">
-                  <select id="t_sobrou_produto_select">
-                    <option value="">Selecione o faturado por primeiro</option>
-                  </select>
-                  <input type="number" id="t_sobrou_quantidade" min="1" step="1" placeholder="Quantidade">
-                  <button type="button" class="btn-primary btn-inline" id="btnAddTSobrou">+ Adicionar item</button>
-                </div>
-
-                <div class="table-wrap top-gap">
-                  <table class="tabela-ocorrencias">
-                    <thead>
-                      <tr>
-                        <th>Código</th>
-                        <th>Produto</th>
-                        <th>Empresa</th>
-                        <th>Quantidade</th>
-                        <th>Ação</th>
-                      </tr>
-                    </thead>
-                    <tbody id="tItensSobrouList">
-                      <tr class="sem-itens-row">
-                        <td colspan="5">Nenhum item adicionado.</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-
-            <!-- FABRICA -->
-            <div id="qFabrica" class="box-form hidden">
-              <div class="box-title">
-                <span>🏭 Questionário — Fábrica</span>
-                <span class="tag-ui">Checklist</span>
-              </div>
-
-              <div class="grid-2">
-                <div>
-                  <label>Faltou item?</label>
-                  <div class="radio-row">
-                    <label class="radio-box">
-                      <input type="radio" name="f_faltou_item" value="false" checked>
-                      <strong>Não</strong>
-                    </label>
-
-                    <label class="radio-box">
-                      <input type="radio" name="f_faltou_item" value="true">
-                      <strong>Sim</strong>
-                    </label>
-                  </div>
-                </div>
-                <div></div>
-              </div>
-
-              <div class="items-card hidden" id="fItensFaltouWrap">
-                <div class="items-head">
-                  <div class="left">📋 Itens que faltaram (Fábrica)</div>
-                </div>
-
-                <div class="item-builder">
-                  <select id="f_faltou_produto_select">
-                    <option value="">Selecione o faturado por primeiro</option>
-                  </select>
-                  <input type="number" id="f_faltou_quantidade" min="1" step="1" placeholder="Quantidade">
-                  <button type="button" class="btn-primary btn-inline" id="btnAddFFaltou">+ Adicionar item</button>
-                </div>
-
-                <div class="table-wrap top-gap">
-                  <table class="tabela-ocorrencias">
-                    <thead>
-                      <tr>
-                        <th>Código</th>
-                        <th>Produto</th>
-                        <th>Empresa</th>
-                        <th>Quantidade</th>
-                        <th>Ação</th>
-                      </tr>
-                    </thead>
-                    <tbody id="fItensFaltouList">
-                      <tr class="sem-itens-row">
-                        <td colspan="5">Nenhum item adicionado.</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              <div class="divider-line"></div>
-
-              <div class="grid-2">
-                <div>
-                  <label>Sobrou item?</label>
-                  <div class="radio-row">
-                    <label class="radio-box">
-                      <input type="radio" name="f_sobrou_item" value="false" checked>
-                      <strong>Não</strong>
-                    </label>
-
-                    <label class="radio-box">
-                      <input type="radio" name="f_sobrou_item" value="true">
-                      <strong>Sim</strong>
-                    </label>
-                  </div>
-                </div>
-                <div></div>
-              </div>
-
-              <div class="items-card hidden" id="fItensSobrouWrap">
-                <div class="items-head">
-                  <div class="left">📋 Itens que sobraram (Fábrica)</div>
-                </div>
-
-                <div class="item-builder">
-                  <select id="f_sobrou_produto_select">
-                    <option value="">Selecione o faturado por primeiro</option>
-                  </select>
-                  <input type="number" id="f_sobrou_quantidade" min="1" step="1" placeholder="Quantidade">
-                  <button type="button" class="btn-primary btn-inline" id="btnAddFSobrou">+ Adicionar item</button>
-                </div>
-
-                <div class="table-wrap top-gap">
-                  <table class="tabela-ocorrencias">
-                    <thead>
-                      <tr>
-                        <th>Código</th>
-                        <th>Produto</th>
-                        <th>Empresa</th>
-                        <th>Quantidade</th>
-                        <th>Ação</th>
-                      </tr>
-                    </thead>
-                    <tbody id="fItensSobrouList">
-                      <tr class="sem-itens-row">
-                        <td colspan="5">Nenhum item adicionado.</td>
-                      </tr>
-                    </tbody>
-                  </table>
                 </div>
               </div>
             </div>
 
-            <!-- CLIENTE / VENDEDOR / OUTRO -->
-            <div id="qSimples" class="box-form hidden">
-              <div class="box-title">
-                <span>📝 Cliente / Vendedor / Outro</span>
-                <span class="tag-ui">Simples</span>
-              </div>
+            <div id="questionarioFabrica" class="hidden">
+              <div class="subcard">
+                <h4>Fábrica</h4>
 
-              <div class="field-hint no-margin">
-                Para <b>Cliente</b>, <b>Vendedor</b> ou <b>Outro</b>: somente <b>Título / Assunto</b>, <b>Descrição</b> e <b>NFD</b>.
+                <div class="subcard itens-subcard">
+                  <div class="subcard-header">
+                    <h4>Itens que faltaram</h4>
+                    <div class="radio-group">
+                      <label class="radio-option">
+                        <input type="radio" name="f_faltou_item" value="false" checked>
+                        <span>Não</span>
+                      </label>
+                      <label class="radio-option">
+                        <input type="radio" name="f_faltou_item" value="true">
+                        <span>Sim</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div id="wrap_f_faltou" class="hidden">
+                    <div class="item-builder">
+                      <div class="autocomplete-wrap">
+                        <label>Produto</label>
+                        <input type="text" id="busca_f_faltou" placeholder="Digite código ou nome do produto">
+                        <div class="autocomplete-list" id="lista_f_faltou"></div>
+                      </div>
+
+                      <div>
+                        <label>Código</label>
+                        <input type="text" id="codigo_f_faltou" disabled>
+                      </div>
+
+                      <div>
+                        <label>Produto selecionado</label>
+                        <input type="text" id="nome_f_faltou" disabled>
+                      </div>
+
+                      <div>
+                        <label>Quantidade</label>
+                        <input type="number" id="quantidade_f_faltou" min="1">
+                      </div>
+
+                      <div class="alinha-bottom">
+                        <button type="button" class="btn-primary btn-inline" id="btnAddFFaltou">Adicionar item</button>
+                      </div>
+                    </div>
+
+                    <div class="table-wrap top-gap">
+                      <table class="tabela-ocorrencias">
+                        <thead>
+                          <tr>
+                            <th>Código</th>
+                            <th>Produto</th>
+                            <th>Empresa</th>
+                            <th>Quantidade</th>
+                            <th>Ação</th>
+                          </tr>
+                        </thead>
+                        <tbody id="tbody_f_faltou">
+                          <tr><td colspan="5">Nenhum item adicionado.</td></tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="subcard itens-subcard">
+                  <div class="subcard-header">
+                    <h4>Itens que sobraram</h4>
+                    <div class="radio-group">
+                      <label class="radio-option">
+                        <input type="radio" name="f_sobrou_item" value="false" checked>
+                        <span>Não</span>
+                      </label>
+                      <label class="radio-option">
+                        <input type="radio" name="f_sobrou_item" value="true">
+                        <span>Sim</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div id="wrap_f_sobrou" class="hidden">
+                    <div class="item-builder">
+                      <div class="autocomplete-wrap">
+                        <label>Produto</label>
+                        <input type="text" id="busca_f_sobrou" placeholder="Digite código ou nome do produto">
+                        <div class="autocomplete-list" id="lista_f_sobrou"></div>
+                      </div>
+
+                      <div>
+                        <label>Código</label>
+                        <input type="text" id="codigo_f_sobrou" disabled>
+                      </div>
+
+                      <div>
+                        <label>Produto selecionado</label>
+                        <input type="text" id="nome_f_sobrou" disabled>
+                      </div>
+
+                      <div>
+                        <label>Quantidade</label>
+                        <input type="number" id="quantidade_f_sobrou" min="1">
+                      </div>
+
+                      <div class="alinha-bottom">
+                        <button type="button" class="btn-primary btn-inline" id="btnAddFSobrou">Adicionar item</button>
+                      </div>
+                    </div>
+
+                    <div class="table-wrap top-gap">
+                      <table class="tabela-ocorrencias">
+                        <thead>
+                          <tr>
+                            <th>Código</th>
+                            <th>Produto</th>
+                            <th>Empresa</th>
+                            <th>Quantidade</th>
+                            <th>Ação</th>
+                          </tr>
+                        </thead>
+                        <tbody id="tbody_f_sobrou">
+                          <tr><td colspan="5">Nenhum item adicionado.</td></tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
 
-          <!-- 5) DESCRIÇÃO -->
-          <div class="card-form">
-            <div class="section-head desc">
-              <div>📝 Descrição do caso</div>
-              <small>Antes dos anexos</small>
+            <div id="questionarioSimples" class="hidden">
+              <div class="subcard">
+                <h4>Cliente / Vendedor / Outro</h4>
+                <p class="campo-ajuda sem-margem">
+                  Para essas origens, não há questionário detalhado nesta etapa.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <section class="nova-card">
+            <div class="nova-section-title">
+              <h3>Descrição</h3>
             </div>
 
             <div>
-              <label for="descricao">Descrição *</label>
-              <textarea id="descricao" name="descricao" rows="6" placeholder="Descreva o problema e o que precisa ser feito..." required></textarea>
+              <label for="descricao">Descrição da ocorrência *</label>
+              <textarea id="descricao" name="descricao" rows="6" required></textarea>
             </div>
-          </div>
+          </section>
 
-          <!-- 6) ANEXOS -->
-          <div class="card-form">
-            <div class="section-head attach">
-              <div>📎 Anexos</div>
-              <small>Último bloco</small>
+          <section class="nova-card">
+            <div class="nova-section-title">
+              <h3>Anexos</h3>
             </div>
 
-            <div class="grid-2">
+            <div class="nova-grid-2">
               <div>
-                <label for="anexos">Escolher arquivos</label>
+                <label for="anexos">Selecionar arquivos</label>
                 <input type="file" id="anexos" name="anexos" multiple>
-                <div class="field-hint">Os anexos serão tratados na próxima etapa.</div>
+                <small class="campo-ajuda">A gravação real de anexos entra na próxima etapa.</small>
               </div>
 
               <div>
@@ -472,7 +497,7 @@
                 <input type="text" value="Status inicial: Aberto" disabled>
               </div>
             </div>
-          </div>
+          </section>
 
           <div class="acoes-form">
             <button type="submit" class="btn-primary">Salvar ocorrência</button>
@@ -480,6 +505,17 @@
         </form>
       </div>
     </main>
+  </div>
+
+  <div class="modal-overlay hidden" id="modalTransportadora">
+    <div class="modal-box">
+      <h3>Atenção</h3>
+      <p>
+        Se o volume saiu correto da Fábrica e da Transmac,
+        verificar com a transportadora do cliente.
+      </p>
+      <button type="button" class="btn-primary btn-inline" id="btnFecharModalTransportadora">OK</button>
+    </div>
   </div>
 
   <%- include('partials/scripts') %>
