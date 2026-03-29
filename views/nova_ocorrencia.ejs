@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
@@ -13,7 +12,235 @@
       <%- include('partials/header', { titulo: 'Nova Ocorrência' }) %>
 
       <div class="card">
-        <p>Esta tela será implementada na Fase 5, com o formulário completo aprovado.</p>
+        <form id="formNovaOcorrencia">
+          <div class="bloco-form">
+            <h3>Número da ocorrência</h3>
+            <div class="grid-2">
+              <div>
+                <label>Número</label>
+                <input type="text" value="<%= proximoNumero %>" disabled>
+              </div>
+              <div>
+                <label>Status inicial</label>
+                <input type="text" value="Aberto" disabled>
+              </div>
+            </div>
+          </div>
+
+          <div class="bloco-form">
+            <h3>Cliente</h3>
+            <div class="grid-2">
+              <div>
+                <label for="razao_social">Razão Social *</label>
+                <input type="text" id="razao_social" name="razao_social" required>
+              </div>
+              <div>
+                <label for="cnpj">CNPJ *</label>
+                <input type="text" id="cnpj" name="cnpj" maxlength="18" placeholder="00.000.000/0000-00" required>
+              </div>
+              <div>
+                <label for="numero_pedido">Número do Pedido *</label>
+                <input type="text" id="numero_pedido" name="numero_pedido" required>
+              </div>
+              <div>
+                <label for="numero_nf">Número da NF *</label>
+                <input type="text" id="numero_nf" name="numero_nf" required>
+              </div>
+            </div>
+          </div>
+
+          <div class="bloco-form">
+            <h3>NFD</h3>
+            <div class="grid-2">
+              <div>
+                <label for="tem_nfd">Cliente já emitiu NFD? *</label>
+                <select id="tem_nfd" name="tem_nfd" required>
+                  <option value="">Selecione</option>
+                  <option value="true">Sim</option>
+                  <option value="false">Não</option>
+                </select>
+              </div>
+              <div id="box_numero_nfd" class="hidden">
+                <label for="numero_nfd">Número da NFD *</label>
+                <input type="text" id="numero_nfd" name="numero_nfd" maxlength="100">
+              </div>
+            </div>
+          </div>
+
+          <div class="bloco-form">
+            <h3>Classificação</h3>
+            <div class="grid-2">
+              <div>
+                <label for="faturado_por">Faturado por *</label>
+                <select id="faturado_por" name="faturado_por" required>
+                  <option value="">Selecione</option>
+                  <option value="IVPLAST">IVPLAST</option>
+                  <option value="VENANI">VENANI</option>
+                </select>
+              </div>
+
+              <div>
+                <label for="responsavel_usuario_id">Responsável *</label>
+                <select id="responsavel_usuario_id" name="responsavel_usuario_id" required>
+                  <option value="">Selecione</option>
+                  <% usuarios.forEach(usuario => { %>
+                    <option value="<%= usuario.id %>"><%= usuario.nome %> - <%= usuario.perfil %></option>
+                  <% }) %>
+                </select>
+              </div>
+
+              <div class="full">
+                <label for="origem_erro">Origem do erro *</label>
+                <select id="origem_erro" name="origem_erro" required>
+                  <option value="">Selecione</option>
+                  <option value="Transportadora">Transportadora</option>
+                  <option value="Fábrica">Fábrica</option>
+                  <option value="Cliente">Cliente</option>
+                  <option value="Vendedor">Vendedor</option>
+                  <option value="Outro">Outro</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div id="questionario_transportadora" class="bloco-form hidden">
+            <h3>Questionário - Transportadora</h3>
+            <div class="grid-2">
+              <div>
+                <label for="faltou_volume">Faltou algum volume?</label>
+                <select id="faltou_volume" name="faltou_volume">
+                  <option value="">Selecione</option>
+                  <option value="true">Sim</option>
+                  <option value="false">Não</option>
+                </select>
+              </div>
+
+              <div id="box_qtd_volumes" class="hidden">
+                <label for="quantidade_volumes_faltantes">Quantidade de volumes faltantes</label>
+                <input type="number" id="quantidade_volumes_faltantes" name="quantidade_volumes_faltantes" min="1">
+              </div>
+
+              <div>
+                <label for="volume_saiu_correto_fabrica">Volume saiu correto da Fábrica?</label>
+                <select id="volume_saiu_correto_fabrica" name="volume_saiu_correto_fabrica">
+                  <option value="">Selecione</option>
+                  <option value="true">Sim</option>
+                  <option value="false">Não</option>
+                </select>
+              </div>
+
+              <div>
+                <label for="volume_saiu_correto_transmac">Volume saiu correto da Transmac?</label>
+                <select id="volume_saiu_correto_transmac" name="volume_saiu_correto_transmac">
+                  <option value="">Selecione</option>
+                  <option value="true">Sim</option>
+                  <option value="false">Não</option>
+                </select>
+              </div>
+
+              <div>
+                <label for="faltou_item">Faltou item?</label>
+                <select id="faltou_item" name="faltou_item">
+                  <option value="">Selecione</option>
+                  <option value="true">Sim</option>
+                  <option value="false">Não</option>
+                </select>
+              </div>
+
+              <div>
+                <label for="sobrou_item">Sobrou item?</label>
+                <select id="sobrou_item" name="sobrou_item">
+                  <option value="">Selecione</option>
+                  <option value="true">Sim</option>
+                  <option value="false">Não</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div id="questionario_fabrica" class="bloco-form hidden">
+            <h3>Questionário - Fábrica</h3>
+            <div class="grid-2">
+              <div>
+                <label for="faltou_item_fabrica">Faltou item?</label>
+                <select id="faltou_item_fabrica">
+                  <option value="">Selecione</option>
+                  <option value="true">Sim</option>
+                  <option value="false">Não</option>
+                </select>
+              </div>
+
+              <div>
+                <label for="sobrou_item_fabrica">Sobrou item?</label>
+                <select id="sobrou_item_fabrica">
+                  <option value="">Selecione</option>
+                  <option value="true">Sim</option>
+                  <option value="false">Não</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="bloco-form">
+            <h3>Itens</h3>
+            <div class="grid-3">
+              <div>
+                <label for="produto_select">Produto</label>
+                <select id="produto_select">
+                  <option value="">Selecione o faturado por primeiro</option>
+                </select>
+              </div>
+
+              <div>
+                <label for="quantidade_item">Quantidade</label>
+                <input type="number" id="quantidade_item" min="1" step="1">
+              </div>
+
+              <div class="align-end">
+                <button type="button" class="btn-primary btn-inline" id="btnAdicionarItem">Adicionar item</button>
+              </div>
+            </div>
+
+            <input type="hidden" name="itens_json" id="itens_json">
+
+            <div class="table-wrap top-gap">
+              <table class="tabela-ocorrencias" id="tabelaItens">
+                <thead>
+                  <tr>
+                    <th>Código</th>
+                    <th>Produto</th>
+                    <th>Empresa</th>
+                    <th>Quantidade</th>
+                    <th>Ação</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr id="linhaSemItens">
+                    <td colspan="5">Nenhum item adicionado.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="bloco-form">
+            <h3>Descrição</h3>
+            <div class="grid-1">
+              <div>
+                <label for="titulo">Título / Assunto *</label>
+                <input type="text" id="titulo" name="titulo" required>
+              </div>
+              <div>
+                <label for="descricao">Descrição da ocorrência *</label>
+                <textarea id="descricao" name="descricao" rows="6" required></textarea>
+              </div>
+            </div>
+          </div>
+
+          <div class="acoes-form">
+            <button type="submit" class="btn-primary">Salvar ocorrência</button>
+          </div>
+        </form>
       </div>
     </main>
   </div>
