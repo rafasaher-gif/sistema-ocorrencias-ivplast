@@ -18,13 +18,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const volumeFabrica = document.getElementById('volume_saiu_correto_fabrica')
   const volumeTransmac = document.getElementById('volume_saiu_correto_transmac')
+  const alertaTransportadora = document.getElementById('alerta_transportadora')
 
   const faturadoPor = document.getElementById('faturado_por')
   const produtoSelect = document.getElementById('produto_select')
   const quantidadeItem = document.getElementById('quantidade_item')
   const btnAdicionarItem = document.getElementById('btnAdicionarItem')
   const tabelaItensBody = document.querySelector('#tabelaItens tbody')
-  const linhaSemItens = document.getElementById('linhaSemItens')
   const itensJson = document.getElementById('itens_json')
 
   const faltouItem = document.getElementById('faltou_item')
@@ -126,13 +126,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function validarAlertaTransportadora() {
+  function atualizarAlertaTransportadora() {
     const fabricaOk = volumeFabrica.value === 'true'
     const transmacOk = volumeTransmac.value === 'true'
-
-    if (fabricaOk && transmacOk) {
-      alert('Se o volume saiu correto da Fábrica e da Transmac, orientar verificação com a transportadora do cliente.')
-    }
+    alertaTransportadora.classList.toggle('hidden', !(fabricaOk && transmacOk))
   }
 
   temNfd.addEventListener('change', () => {
@@ -149,8 +146,8 @@ document.addEventListener('DOMContentLoaded', () => {
     boxQtdVolumes.classList.toggle('hidden', !mostrar)
   })
 
-  volumeFabrica.addEventListener('change', validarAlertaTransportadora)
-  volumeTransmac.addEventListener('change', validarAlertaTransportadora)
+  volumeFabrica.addEventListener('change', atualizarAlertaTransportadora)
+  volumeTransmac.addEventListener('change', atualizarAlertaTransportadora)
 
   faturadoPor.addEventListener('change', () => {
     itens = []
@@ -162,6 +159,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const selected = produtoSelect.options[produtoSelect.selectedIndex]
     const produtoId = produtoSelect.value
     const quantidade = quantidadeItem.value
+
+    if (!faturadoPor.value) {
+      alert('Selecione primeiro o campo "Faturado por".')
+      return
+    }
 
     if (!produtoId) {
       alert('Selecione um produto.')
@@ -201,6 +203,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault()
+
+    if (temNfd.value === 'true' && !numeroNfd.value.trim()) {
+      alert('Informe o número da NFD.')
+      return
+    }
 
     if (origemErro.value === 'Fábrica') {
       faltouItem.value = faltouItemFabrica.value || ''
