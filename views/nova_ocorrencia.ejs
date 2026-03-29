@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
@@ -13,11 +14,10 @@
 
       <div class="card">
         <form id="formNovaOcorrencia">
-          <div class="bloco-form">
-            <h3>Número da ocorrência</h3>
+          <div class="bloco-form destaque-topo">
             <div class="grid-2">
               <div>
-                <label>Número</label>
+                <label>Número da ocorrência</label>
                 <input type="text" value="<%= proximoNumero %>" disabled>
               </div>
               <div>
@@ -34,14 +34,17 @@
                 <label for="razao_social">Razão Social *</label>
                 <input type="text" id="razao_social" name="razao_social" required>
               </div>
+
               <div>
                 <label for="cnpj">CNPJ *</label>
                 <input type="text" id="cnpj" name="cnpj" maxlength="18" placeholder="00.000.000/0000-00" required>
               </div>
+
               <div>
                 <label for="numero_pedido">Número do Pedido *</label>
                 <input type="text" id="numero_pedido" name="numero_pedido" required>
               </div>
+
               <div>
                 <label for="numero_nf">Número da NF *</label>
                 <input type="text" id="numero_nf" name="numero_nf" required>
@@ -60,6 +63,7 @@
                   <option value="false">Não</option>
                 </select>
               </div>
+
               <div id="box_numero_nfd" class="hidden">
                 <label for="numero_nfd">Número da NFD *</label>
                 <input type="text" id="numero_nfd" name="numero_nfd" maxlength="100">
@@ -105,6 +109,7 @@
 
           <div id="questionario_transportadora" class="bloco-form hidden">
             <h3>Questionário - Transportadora</h3>
+
             <div class="grid-2">
               <div>
                 <label for="faltou_volume">Faltou algum volume?</label>
@@ -155,6 +160,10 @@
                   <option value="false">Não</option>
                 </select>
               </div>
+            </div>
+
+            <div id="alerta_transportadora" class="alerta-info hidden top-gap">
+              Se o volume saiu correto da Fábrica e da Transmac, orientar o cliente a verificar com a transportadora.
             </div>
           </div>
 
@@ -230,6 +239,7 @@
                 <label for="titulo">Título / Assunto *</label>
                 <input type="text" id="titulo" name="titulo" required>
               </div>
+
               <div>
                 <label for="descricao">Descrição da ocorrência *</label>
                 <textarea id="descricao" name="descricao" rows="6" required></textarea>
