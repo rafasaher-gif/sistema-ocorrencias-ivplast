@@ -1,353 +1,861 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-  <title>Acompanhamento da Ocorrência</title>
-  <%- include('partials/head') %>
-</head>
-<body>
-  <div class="app-layout">
-    <%- include('partials/sidebar') %>
+const crypto = require('crypto')
+const path = require('path')
+const pool = require('../config/database')
+const supabase = require('../config/supabase')
 
-    <main class="main-content">
-      <%- include('partials/header', { titulo: 'Acompanhamento da Ocorrência' }) %>
+function parseBoolean(valor) {
+  if (valor === true || valor === 'true' || valor === '1' || valor === 1 || valor === 'Sim' || valor === 'sim') return true
+  if (valor === false || valor === 'false' || valor === '0' || valor === 0 || valor === 'Não' || valor === 'Nao' || valor === 'não' || valor === 'nao') return false
+  return null
+}
 
-      <div class="acompanhar-page">
-        <section class="nova-card destaque">
-          <div class="nova-card-header">
-            <div>
-              <h3>Ocorrência #<%= ocorrencia.numero %></h3>
-              <p><strong>Status:</strong> <%= ocorrencia.status_nome || ocorrencia.status || 'Aberto' %></p>
-            </div>
-            <div class="numero-badge">
-              <span>Responsável</span>
-              <strong><%= ocorrencia.responsavel_nome || '-' %></strong>
-            </div>
-          </div>
+function nomeArquivoSeguro(nome = '') {
+  return nome
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9._-]/g, '_')
+}
 
-          <div class="acompanhar-resumo">
-            <div class="resumo-pill">
-              <span>Cliente</span>
-              <strong><%= ocorrencia.razao_social || ocorrencia.cliente || '-' %></strong>
-            </div>
-            <div class="resumo-pill">
-              <span>Origem</span>
-              <strong><%= ocorrencia.origem_erro || '-' %></strong>
-            </div>
-            <div class="resumo-pill">
-              <span>Faturado por</span>
-              <strong><%= ocorrencia.faturado_por || '-' %></strong>
-            </div>
-            <div class="resumo-pill">
-              <span>Data</span>
-              <strong><%= ocorrencia.criado_em ? new Date(ocorrencia.criado_em).toLocaleString('pt-BR') : '-' %></strong>
-            </div>
-          </div>
-        </section>
+function tamanhoFormatado(bytes = 0) {
+  const kb = Math.round(bytes / 1024)
+  if (kb < 1024) return `${kb} KB`
+  const mb = (bytes / (1024 * 1024)).toFixed(2)
+  return `${mb} MB`
+}
 
-        <% if (erro) { %>
-          <div class="alert-error"><%= erro %></div>
-        <% } %>
+async function uploadArquivosSupabase(ocorrenciaNumero, files = []) {
+  const bucket = process.env.SUPABASE_BUCKET
+  const enviados = []
 
-        <% if (sucesso) { %>
-          <div class="alert-success"><%= sucesso %></div>
-        <% } %>
+  for (const file of files) {
+    const extensao = path.extname(file.originalname || '')
+    const base = path.basename(file.originalname || 'arquivo', extensao)
+    const nomeSeguro = nomeArquivoSeguro(base)
+    const hash = crypto.randomBytes(8).toString('hex')
+    const nomeArmazenado = `ocorrencias/${ocorrenciaNumero}/${Date.now()}_${hash}_${nomeSeguro}${extensao}`
 
-        <section class="nova-card">
-          <div class="nova-section-title">
-            <h3>Atualizar ocorrência</h3>
-          </div>
+    const { error } = await supabase.storage
+      .from(bucket)
+      .upload(nomeArmazenado, file.buffer, {
+        contentType: file.mimetype,
+        upsert: false
+      })
 
-          <form method="POST" action="/ocorrencias/<%= ocorrencia.id %>/atualizar">
-            <div class="nova-grid-2">
-              <div>
-                <label for="novo_status">Novo status</label>
-                <select id="novo_status" name="novo_status">
-                  <option value="">Manter status atual</option>
-                  <% statusList.forEach(status => { %>
-                    <option value="<%= status.nome %>"><%= status.nome %></option>
-                  <% }) %>
-                </select>
-              </div>
-              <div></div>
-            </div>
+    if (error) {
+      throw new Error(`Erro ao enviar anexo "${file.originalname}": ${error.message}`)
+    }
 
-            <div class="top-gap">
-              <label for="comentario">Comentário / andamento *</label>
-              <textarea id="comentario" name="comentario" rows="5" required></textarea>
-            </div>
+    const { data: signedData, error: signedError } = await supabase.storage
+      .from(bucket)
+      .createSignedUrl(nomeArmazenado, 60 * 60 * 24 * 7)
 
-            <div class="acoes-form top-gap">
-              <button type="submit" class="btn-primary">Registrar atualização</button>
-            </div>
-          </form>
-        </section>
+    if (signedError) {
+      throw new Error(`Erro ao gerar link do anexo "${file.originalname}": ${signedError.message}`)
+    }
 
-        <section class="nova-card">
-          <div class="nova-section-title">
-            <h3>Dados principais</h3>
-          </div>
+    enviados.push({
+      nome_original: file.originalname,
+      nome_armazenado: nomeArmazenado,
+      url_arquivo: signedData?.signedUrl || '',
+      tamanho_bytes: file.size
+    })
+  }
 
-          <div class="nova-grid-2">
-            <div>
-              <label>Razão Social</label>
-              <input type="text" value="<%= ocorrencia.razao_social || '' %>" disabled>
-            </div>
-            <div>
-              <label>CNPJ</label>
-              <input type="text" value="<%= ocorrencia.cnpj || '' %>" disabled>
-            </div>
-            <div>
-              <label>Número do Pedido</label>
-              <input type="text" value="<%= ocorrencia.numero_pedido || '' %>" disabled>
-            </div>
-            <div>
-              <label>Número da NF</label>
-              <input type="text" value="<%= ocorrencia.numero_nf || '' %>" disabled>
-            </div>
-            <div>
-              <label>NFD emitida?</label>
-              <input type="text" value="<%= ocorrencia.tem_nfd === true ? 'Sim' : 'Não' %>" disabled>
-            </div>
-            <div>
-              <label>Número da NFD</label>
-              <input type="text" value="<%= ocorrencia.numero_nfd || '' %>" disabled>
-            </div>
-            <div>
-              <label>Responsável</label>
-              <input type="text" value="<%= ocorrencia.responsavel_nome || '' %>" disabled>
-            </div>
-            <div>
-              <label>Criado por</label>
-              <input type="text" value="<%= ocorrencia.criado_por_nome || '' %>" disabled>
-            </div>
-          </div>
-        </section>
+  return enviados
+}
 
-        <section class="nova-card">
-          <div class="nova-section-title">
-            <h3>Título / Assunto</h3>
-          </div>
-          <input type="text" value="<%= ocorrencia.titulo || '' %>" disabled>
-        </section>
+async function gerarLinkAnexo(nomeArmazenado) {
+  if (!nomeArmazenado) return ''
+  const bucket = process.env.SUPABASE_BUCKET
 
-        <section class="nova-card">
-          <div class="nova-section-title">
-            <h3>Descrição</h3>
-          </div>
-          <textarea class="descricao-grande" disabled><%= ocorrencia.descricao || '' %></textarea>
-        </section>
+  const { data, error } = await supabase.storage
+    .from(bucket)
+    .createSignedUrl(nomeArmazenado, 60 * 60 * 24 * 7)
 
-        <% if (questionario) { %>
-          <section class="nova-card">
-            <div class="nova-section-title">
-              <h3>Questionário preenchido</h3>
-            </div>
+  if (error) {
+    console.error('Erro ao gerar signed url:', error.message)
+    return ''
+  }
 
-            <div class="nova-grid-2">
-              <div>
-                <label>Faltou volume?</label>
-                <input type="text" value="<%= questionario.faltou_volume === true ? 'Sim' : questionario.faltou_volume === false ? 'Não' : '' %>" disabled>
-              </div>
-              <div>
-                <label>Quantidade de volumes faltantes</label>
-                <input type="text" value="<%= questionario.quantidade_volumes_faltantes || '' %>" disabled>
-              </div>
-              <div>
-                <label>Volume saiu correto da Fábrica?</label>
-                <input type="text" value="<%= questionario.volume_saiu_correto_fabrica === true ? 'Sim' : questionario.volume_saiu_correto_fabrica === false ? 'Não' : '' %>" disabled>
-              </div>
-              <div>
-                <label>Volume saiu correto da Transmac?</label>
-                <input type="text" value="<%= questionario.volume_saiu_correto_transmac === true ? 'Sim' : questionario.volume_saiu_correto_transmac === false ? 'Não' : '' %>" disabled>
-              </div>
-              <div>
-                <label>Faltou item?</label>
-                <input type="text" value="<%= questionario.faltou_item === true ? 'Sim' : questionario.faltou_item === false ? 'Não' : '' %>" disabled>
-              </div>
-              <div>
-                <label>Sobrou item?</label>
-                <input type="text" value="<%= questionario.sobrou_item === true ? 'Sim' : questionario.sobrou_item === false ? 'Não' : '' %>" disabled>
-              </div>
-            </div>
-          </section>
-        <% } %>
+  return data?.signedUrl || ''
+}
 
-        <section class="nova-card">
-          <div class="nova-section-title">
-            <h3>Itens</h3>
-          </div>
+async function carregarDadosOcorrencia(ocorrenciaId) {
+  const ocorrenciaResult = await pool.query(`
+    SELECT
+      o.*,
+      s.nome AS status_nome,
+      u1.nome AS criado_por_nome,
+      u2.nome AS responsavel_nome
+    FROM ocorrencias o
+    LEFT JOIN status s ON s.id = o.status_id
+    LEFT JOIN usuarios u1 ON u1.id = o.criado_por
+    LEFT JOIN usuarios u2 ON u2.id = o.responsavel_usuario_id
+    WHERE o.id = $1
+    LIMIT 1
+  `, [ocorrenciaId])
 
-          <% if (itens.length === 0) { %>
-            <div class="empty-box">Nenhum item registrado.</div>
-          <% } %>
+  if (!ocorrenciaResult.rows.length) {
+    return null
+  }
 
-          <% if (itensPorBloco.transportadora_faltou.length) { %>
-            <div class="subcard itens-subcard">
-              <h4>Transportadora - Itens que faltaram</h4>
-              <div class="table-wrap top-gap">
-                <table class="tabela-ocorrencias">
-                  <thead>
-                    <tr><th>Código</th><th>Produto</th><th>Empresa</th><th>Quantidade</th></tr>
-                  </thead>
-                  <tbody>
-                    <% itensPorBloco.transportadora_faltou.forEach(item => { %>
-                      <tr>
-                        <td><%= item.codigo_produto || '' %></td>
-                        <td><%= item.nome_produto || '' %></td>
-                        <td><%= item.empresa || '' %></td>
-                        <td><%= item.quantidade || '' %></td>
-                      </tr>
-                    <% }) %>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          <% } %>
+  const ocorrencia = ocorrenciaResult.rows[0]
 
-          <% if (itensPorBloco.transportadora_sobrou.length) { %>
-            <div class="subcard itens-subcard">
-              <h4>Transportadora - Itens que sobraram</h4>
-              <div class="table-wrap top-gap">
-                <table class="tabela-ocorrencias">
-                  <thead>
-                    <tr><th>Código</th><th>Produto</th><th>Empresa</th><th>Quantidade</th></tr>
-                  </thead>
-                  <tbody>
-                    <% itensPorBloco.transportadora_sobrou.forEach(item => { %>
-                      <tr>
-                        <td><%= item.codigo_produto || '' %></td>
-                        <td><%= item.nome_produto || '' %></td>
-                        <td><%= item.empresa || '' %></td>
-                        <td><%= item.quantidade || '' %></td>
-                      </tr>
-                    <% }) %>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          <% } %>
+  const questionarioResult = await pool.query(`
+    SELECT *
+    FROM ocorrencia_questionario
+    WHERE ocorrencia_id = $1
+    LIMIT 1
+  `, [ocorrenciaId])
 
-          <% if (itensPorBloco.fabrica_faltou.length) { %>
-            <div class="subcard itens-subcard">
-              <h4>Fábrica - Itens que faltaram</h4>
-              <div class="table-wrap top-gap">
-                <table class="tabela-ocorrencias">
-                  <thead>
-                    <tr><th>Código</th><th>Produto</th><th>Empresa</th><th>Quantidade</th></tr>
-                  </thead>
-                  <tbody>
-                    <% itensPorBloco.fabrica_faltou.forEach(item => { %>
-                      <tr>
-                        <td><%= item.codigo_produto || '' %></td>
-                        <td><%= item.nome_produto || '' %></td>
-                        <td><%= item.empresa || '' %></td>
-                        <td><%= item.quantidade || '' %></td>
-                      </tr>
-                    <% }) %>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          <% } %>
+  const itensResult = await pool.query(`
+    SELECT
+      id,
+      tipo_bloco,
+      empresa,
+      produto_id,
+      codigo_produto,
+      nome_produto,
+      quantidade,
+      criado_em
+    FROM ocorrencia_itens
+    WHERE ocorrencia_id = $1
+    ORDER BY id ASC
+  `, [ocorrenciaId])
 
-          <% if (itensPorBloco.fabrica_sobrou.length) { %>
-            <div class="subcard itens-subcard">
-              <h4>Fábrica - Itens que sobraram</h4>
-              <div class="table-wrap top-gap">
-                <table class="tabela-ocorrencias">
-                  <thead>
-                    <tr><th>Código</th><th>Produto</th><th>Empresa</th><th>Quantidade</th></tr>
-                  </thead>
-                  <tbody>
-                    <% itensPorBloco.fabrica_sobrou.forEach(item => { %>
-                      <tr>
-                        <td><%= item.codigo_produto || '' %></td>
-                        <td><%= item.nome_produto || '' %></td>
-                        <td><%= item.empresa || '' %></td>
-                        <td><%= item.quantidade || '' %></td>
-                      </tr>
-                    <% }) %>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          <% } %>
+  const anexosResult = await pool.query(`
+    SELECT
+      id,
+      nome_original,
+      nome_armazenado,
+      url_arquivo,
+      tamanho_bytes,
+      enviado_em
+    FROM anexos
+    WHERE ocorrencia_id = $1
+    ORDER BY id ASC
+  `, [ocorrenciaId])
 
-          <% if (itensPorBloco.outros.length) { %>
-            <div class="subcard itens-subcard">
-              <h4>Outros itens</h4>
-              <div class="table-wrap top-gap">
-                <table class="tabela-ocorrencias">
-                  <thead>
-                    <tr><th>Código</th><th>Produto</th><th>Empresa</th><th>Quantidade</th></tr>
-                  </thead>
-                  <tbody>
-                    <% itensPorBloco.outros.forEach(item => { %>
-                      <tr>
-                        <td><%= item.codigo_produto || '' %></td>
-                        <td><%= item.nome_produto || '' %></td>
-                        <td><%= item.empresa || '' %></td>
-                        <td><%= item.quantidade || '' %></td>
-                      </tr>
-                    <% }) %>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          <% } %>
-        </section>
+  const anexosComLink = []
+  for (const anexo of anexosResult.rows) {
+    const link = await gerarLinkAnexo(anexo.nome_armazenado)
+    anexosComLink.push({
+      ...anexo,
+      url_visualizacao: link || anexo.url_arquivo || '',
+      tamanho_formatado: tamanhoFormatado(anexo.tamanho_bytes || 0)
+    })
+  }
 
-        <section class="nova-card">
-          <div class="nova-section-title">
-            <h3>Anexos</h3>
-          </div>
+  const historicoResult = await pool.query(`
+    SELECT
+      h.*,
+      u.nome AS usuario_nome,
+      ue.nome AS editado_por_nome
+    FROM historico_ocorrencias h
+    LEFT JOIN usuarios u ON u.id = h.usuario_id
+    LEFT JOIN usuarios ue ON ue.id = h.editado_por_usuario_id
+    WHERE h.ocorrencia_id = $1
+    ORDER BY h.criado_em ASC, h.id ASC
+  `, [ocorrenciaId])
 
-          <% if (anexos.length === 0) { %>
-            <div class="empty-box">Nenhum anexo registrado.</div>
-          <% } else { %>
-            <div class="anexos-lista">
-              <% anexos.forEach(anexo => { %>
-                <a class="anexo-card" href="<%= anexo.url_arquivo %>" target="_blank">
-                  <div class="anexo-titulo"><%= anexo.nome_original %></div>
-                  <div class="anexo-meta">
-                    <span><%= anexo.tamanho_bytes ? Math.round(anexo.tamanho_bytes / 1024) : 0 %> KB</span>
-                    <span><%= anexo.enviado_em ? new Date(anexo.enviado_em).toLocaleString('pt-BR') : '' %></span>
-                  </div>
-                </a>
-              <% }) %>
-            </div>
-          <% } %>
-        </section>
+  const statusResult = await pool.query(`
+    SELECT id, nome, ordem_fluxo
+    FROM status
+    WHERE ativo = TRUE
+    ORDER BY ordem_fluxo
+  `)
 
-        <section class="nova-card">
-          <div class="nova-section-title">
-            <h3>Histórico</h3>
-          </div>
+  const itensPorBloco = {
+    transportadora_faltou: [],
+    transportadora_sobrou: [],
+    fabrica_faltou: [],
+    fabrica_sobrou: [],
+    outros: []
+  }
 
-          <% if (historico.length === 0) { %>
-            <div class="empty-box">Nenhum histórico registrado.</div>
-          <% } else { %>
-            <div class="timeline">
-              <% historico.forEach(item => { %>
-                <div class="timeline-item">
-                  <div class="timeline-dot"></div>
-                  <div class="timeline-content">
-                    <div class="timeline-topo">
-                      <strong><%= item.titulo_evento || item.acao || 'Evento' %></strong>
-                      <span><%= item.criado_em ? new Date(item.criado_em).toLocaleString('pt-BR') : '' %></span>
-                    </div>
-                    <div class="timeline-meta"><%= item.usuario_nome || 'Sistema' %></div>
-                    <div class="timeline-texto"><%= item.descricao_evento || item.acao || '' %></div>
-                  </div>
-                </div>
-              <% }) %>
-            </div>
-          <% } %>
-        </section>
-      </div>
-    </main>
-  </div>
+  for (const item of itensResult.rows) {
+    if (itensPorBloco[item.tipo_bloco]) {
+      itensPorBloco[item.tipo_bloco].push(item)
+    } else {
+      itensPorBloco.outros.push(item)
+    }
+  }
 
-  <%- include('partials/scripts') %>
-</body>
-</html>
+  return {
+    ocorrencia,
+    questionario: questionarioResult.rows[0] || null,
+    itens: itensResult.rows,
+    itensPorBloco,
+    anexos: anexosComLink,
+    historico: historicoResult.rows,
+    statusList: statusResult.rows
+  }
+}
+
+function podeAlterarStatus(usuario, statusAtual, novoStatus) {
+  const perfil = usuario?.perfil || ''
+
+  if (novoStatus === 'Resolvido Aprovado') {
+    return ['Administrador', 'Diretoria'].includes(perfil)
+  }
+
+  if (statusAtual === 'Aguardando financeiro') {
+    return ['Administrador', 'Financeiro'].includes(perfil)
+  }
+
+  return true
+}
+
+exports.lista = async (req, res) => {
+  try {
+    const busca = req.query.busca || ''
+    const status = req.query.status || ''
+    const ordem = req.query.ordem || 'mais_antigo'
+    const pagina = parseInt(req.query.pagina || '1', 10)
+    const limite = 30
+    const offset = (pagina - 1) * limite
+
+    const where = []
+    const params = []
+    let idx = 1
+
+    if (busca) {
+      where.push(`(
+        CAST(o.numero AS TEXT) ILIKE $${idx}
+        OR COALESCE(o.razao_social, o.cliente, '') ILIKE $${idx}
+        OR COALESCE(o.cnpj, '') ILIKE $${idx}
+      )`)
+      params.push(`%${busca}%`)
+      idx++
+    }
+
+    if (status) {
+      where.push(`s.nome = $${idx}`)
+      params.push(status)
+      idx++
+    }
+
+    where.push(`COALESCE(o.excluida, FALSE) = FALSE`)
+
+    let orderBy = `o.criado_em ASC`
+    if (ordem === 'mais_novo') orderBy = `o.criado_em DESC`
+    if (ordem === 'a_z') orderBy = `COALESCE(o.razao_social, o.cliente, '') ASC`
+    if (ordem === 'z_a') orderBy = `COALESCE(o.razao_social, o.cliente, '') DESC`
+
+    const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : ''
+
+    const totalQuery = `
+      SELECT COUNT(*)::int AS total
+      FROM ocorrencias o
+      LEFT JOIN status s ON s.id = o.status_id
+      ${whereSql}
+    `
+    const totalResult = await pool.query(totalQuery, params)
+    const total = totalResult.rows[0]?.total || 0
+    const totalPaginas = Math.max(1, Math.ceil(total / limite))
+
+    const query = `
+      SELECT
+        o.id,
+        o.numero,
+        o.criado_em,
+        COALESCE(o.razao_social, o.cliente) AS cliente,
+        o.cnpj,
+        o.numero_pedido,
+        o.origem_erro,
+        o.titulo,
+        s.nome AS status_nome,
+        u.nome AS responsavel_nome
+      FROM ocorrencias o
+      LEFT JOIN status s ON s.id = o.status_id
+      LEFT JOIN usuarios u ON u.id = o.responsavel_usuario_id
+      ${whereSql}
+      ORDER BY ${orderBy}
+      LIMIT $${idx} OFFSET $${idx + 1}
+    `
+
+    const queryParams = [...params, limite, offset]
+    const result = await pool.query(query, queryParams)
+
+    const abertasResult = await pool.query(`
+      SELECT COUNT(*)::int AS total
+      FROM ocorrencias o
+      LEFT JOIN status s ON s.id = o.status_id
+      WHERE COALESCE(o.excluida, FALSE) = FALSE
+        AND COALESCE(s.nome, '') <> 'Resolvido Aprovado'
+    `)
+
+    const statusResult = await pool.query(`
+      SELECT id, nome, ordem_fluxo
+      FROM status
+      WHERE ativo = TRUE
+      ORDER BY ordem_fluxo
+    `)
+
+    return res.render('lista_ocorrencias', {
+      ocorrencias: result.rows,
+      busca,
+      statusFiltro: status,
+      ordem,
+      pagina,
+      totalPaginas,
+      totalAbertas: abertasResult.rows[0]?.total || 0,
+      statusList: statusResult.rows
+    })
+  } catch (error) {
+    console.error('Erro ao carregar ocorrências:', error)
+    return res.status(500).send('Erro ao carregar lista de ocorrências')
+  }
+}
+
+exports.novaPage = async (req, res) => {
+  try {
+    const usuariosResult = await pool.query(`
+      SELECT id, nome, perfil
+      FROM usuarios
+      WHERE ativo = TRUE
+      ORDER BY nome ASC
+    `)
+
+    const proximoNumeroResult = await pool.query(`
+      SELECT COALESCE(MAX(numero), 99) + 1 AS proximo_numero
+      FROM ocorrencias
+    `)
+
+    return res.render('nova_ocorrencia', {
+      usuarios: usuariosResult.rows,
+      proximoNumero: proximoNumeroResult.rows[0]?.proximo_numero || 100
+    })
+  } catch (error) {
+    console.error('Erro ao carregar tela nova ocorrência:', error)
+    return res.status(500).send('Erro ao abrir nova ocorrência')
+  }
+}
+
+exports.produtosPorEmpresa = async (req, res) => {
+  try {
+    const empresa = req.query.empresa || ''
+
+    if (!empresa || !['IVPLAST', 'VENANI'].includes(empresa)) {
+      return res.status(400).json({ erro: 'Empresa inválida.' })
+    }
+
+    const result = await pool.query(`
+      SELECT id, codigo, nome, empresa
+      FROM produtos
+      WHERE ativo = TRUE
+        AND empresa = $1
+      ORDER BY nome ASC
+    `, [empresa])
+
+    return res.json({ produtos: result.rows })
+  } catch (error) {
+    console.error('Erro ao buscar produtos:', error)
+    return res.status(500).json({ erro: 'Erro ao buscar produtos.' })
+  }
+}
+
+exports.criar = async (req, res) => {
+  const client = await pool.connect()
+
+  try {
+    await client.query('BEGIN')
+
+    const {
+      razao_social,
+      cnpj,
+      numero_pedido,
+      numero_nf,
+      tem_nfd,
+      numero_nfd,
+      faturado_por,
+      responsavel_usuario_id,
+      origem_erro,
+      titulo,
+      descricao,
+      itens_json,
+      faltou_volume,
+      quantidade_volumes_faltantes,
+      volume_saiu_correto_fabrica,
+      volume_saiu_correto_transmac
+    } = req.body
+
+    if (!razao_social || !cnpj || !numero_pedido || !numero_nf) {
+      await client.query('ROLLBACK')
+      return res.status(400).json({ erro: 'Preencha todos os campos obrigatórios do bloco Cliente.' })
+    }
+
+    if (!faturado_por || !['IVPLAST', 'VENANI'].includes(faturado_por)) {
+      await client.query('ROLLBACK')
+      return res.status(400).json({ erro: 'Faturado por inválido.' })
+    }
+
+    if (!responsavel_usuario_id) {
+      await client.query('ROLLBACK')
+      return res.status(400).json({ erro: 'Responsável é obrigatório.' })
+    }
+
+    if (!origem_erro || !['Transportadora', 'Fábrica', 'Cliente', 'Vendedor', 'Outro'].includes(origem_erro)) {
+      await client.query('ROLLBACK')
+      return res.status(400).json({ erro: 'Origem do erro inválida.' })
+    }
+
+    if (!titulo || !descricao) {
+      await client.query('ROLLBACK')
+      return res.status(400).json({ erro: 'Título e descrição são obrigatórios.' })
+    }
+
+    const arquivos = Array.isArray(req.files) ? req.files : []
+    const totalBytes = arquivos.reduce((acc, file) => acc + (file.size || 0), 0)
+
+    if (totalBytes > 10 * 1024 * 1024) {
+      await client.query('ROLLBACK')
+      return res.status(400).json({ erro: 'O total de anexos por envio não pode ultrapassar 10 MB.' })
+    }
+
+    const proximoNumeroResult = await client.query(`
+      SELECT COALESCE(MAX(numero), 99) + 1 AS proximo_numero
+      FROM ocorrencias
+    `)
+    const proximoNumero = proximoNumeroResult.rows[0]?.proximo_numero || 100
+
+    const statusResult = await client.query(`
+      SELECT id
+      FROM status
+      WHERE nome = 'Aberto'
+      LIMIT 1
+    `)
+
+    if (!statusResult.rows.length) {
+      await client.query('ROLLBACK')
+      return res.status(500).json({ erro: 'Status inicial "Aberto" não encontrado.' })
+    }
+
+    const statusId = statusResult.rows[0].id
+
+    const ocorrenciaResult = await client.query(`
+      INSERT INTO ocorrencias (
+        numero,
+        cliente,
+        descricao,
+        status,
+        criado_por,
+        razao_social,
+        cnpj,
+        numero_pedido,
+        numero_nf,
+        tem_nfd,
+        numero_nfd,
+        faturado_por,
+        responsavel_usuario_id,
+        origem_erro,
+        titulo,
+        status_id
+      )
+      VALUES (
+        $1, $2, $3, 'Aberto', $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
+      )
+      RETURNING id, numero
+    `, [
+      proximoNumero,
+      razao_social,
+      descricao,
+      req.session.usuario.id,
+      razao_social,
+      cnpj,
+      numero_pedido,
+      numero_nf,
+      parseBoolean(tem_nfd),
+      numero_nfd || null,
+      faturado_por,
+      responsavel_usuario_id,
+      origem_erro,
+      titulo,
+      statusId
+    ])
+
+    const ocorrenciaId = ocorrenciaResult.rows[0].id
+
+    await client.query(`
+      INSERT INTO historico_ocorrencias (
+        ocorrencia_id,
+        usuario_id,
+        acao,
+        tipo_evento,
+        titulo_evento,
+        descricao_evento
+      )
+      VALUES ($1, $2, $3, $4, $5, $6)
+    `, [
+      ocorrenciaId,
+      req.session.usuario.id,
+      'Criação da ocorrência',
+      'CRIACAO',
+      'Ocorrência aberta',
+      `Ocorrência ${proximoNumero} criada com status Aberto. Cliente: ${razao_social}. Origem: ${origem_erro}.`
+    ])
+
+    const deveCriarQuestionario = ['Transportadora', 'Fábrica'].includes(origem_erro)
+
+    if (deveCriarQuestionario) {
+      const faltouItemGeral = (origem_erro === 'Transportadora')
+        ? (req.body.t_faltou_item === 'true' || req.body.t_sobrou_item === 'true')
+        : (req.body.f_faltou_item === 'true' || req.body.f_sobrou_item === 'true')
+
+      const sobrouItemGeral = (origem_erro === 'Transportadora')
+        ? req.body.t_sobrou_item === 'true'
+        : req.body.f_sobrou_item === 'true'
+
+      await client.query(`
+        INSERT INTO ocorrencia_questionario (
+          ocorrencia_id,
+          faltou_volume,
+          quantidade_volumes_faltantes,
+          volume_saiu_correto_fabrica,
+          volume_saiu_correto_transmac,
+          faltou_item,
+          sobrou_item
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `, [
+        ocorrenciaId,
+        parseBoolean(faltou_volume),
+        quantidade_volumes_faltantes ? parseInt(quantidade_volumes_faltantes, 10) : null,
+        parseBoolean(volume_saiu_correto_fabrica),
+        parseBoolean(volume_saiu_correto_transmac),
+        faltouItemGeral,
+        sobrouItemGeral
+      ])
+    }
+
+    let itens = []
+    if (itens_json) {
+      try {
+        itens = JSON.parse(itens_json)
+      } catch (e) {
+        itens = []
+      }
+    }
+
+    if (Array.isArray(itens) && itens.length) {
+      for (const item of itens) {
+        if (!item) continue
+
+        await client.query(`
+          INSERT INTO ocorrencia_itens (
+            ocorrencia_id,
+            tipo_bloco,
+            empresa,
+            produto_id,
+            codigo_produto,
+            nome_produto,
+            quantidade
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `, [
+          ocorrenciaId,
+          item.tipo_bloco || 'principal',
+          item.empresa || faturado_por,
+          item.produto_id || null,
+          item.codigo_produto || null,
+          item.nome_produto || null,
+          item.quantidade || 0
+        ])
+      }
+
+      await client.query(`
+        INSERT INTO historico_ocorrencias (
+          ocorrencia_id,
+          usuario_id,
+          acao,
+          tipo_evento,
+          titulo_evento,
+          descricao_evento
+        )
+        VALUES ($1, $2, $3, $4, $5, $6)
+      `, [
+        ocorrenciaId,
+        req.session.usuario.id,
+        'Itens registrados',
+        'ITENS',
+        'Itens incluídos na abertura',
+        `${itens.length} item(ns) registrado(s) na abertura da ocorrência.`
+      ])
+    }
+
+    if (arquivos.length) {
+      const anexosEnviados = await uploadArquivosSupabase(proximoNumero, arquivos)
+
+      for (const anexo of anexosEnviados) {
+        await client.query(`
+          INSERT INTO anexos (
+            ocorrencia_id,
+            nome_original,
+            nome_armazenado,
+            url_arquivo,
+            tamanho_bytes,
+            enviado_por_usuario_id
+          )
+          VALUES ($1, $2, $3, $4, $5, $6)
+        `, [
+          ocorrenciaId,
+          anexo.nome_original,
+          anexo.nome_armazenado,
+          anexo.url_arquivo,
+          anexo.tamanho_bytes,
+          req.session.usuario.id
+        ])
+
+        await client.query(`
+          INSERT INTO historico_ocorrencias (
+            ocorrencia_id,
+            usuario_id,
+            acao,
+            tipo_evento,
+            titulo_evento,
+            descricao_evento
+          )
+          VALUES ($1, $2, $3, $4, $5, $6)
+        `, [
+          ocorrenciaId,
+          req.session.usuario.id,
+          'Anexo incluído',
+          'ANEXO',
+          'Anexo adicionado na abertura',
+          `Arquivo anexado: ${anexo.nome_original}`
+        ])
+      }
+    }
+
+    await client.query('COMMIT')
+
+    return res.status(201).json({
+      sucesso: true,
+      mensagem: 'Ocorrência criada com sucesso.',
+      ocorrencia_id: ocorrenciaId,
+      numero: proximoNumero,
+      redirect: '/ocorrencias'
+    })
+  } catch (error) {
+    await client.query('ROLLBACK')
+    console.error('Erro ao criar ocorrência:', error)
+    return res.status(500).json({ erro: 'Erro interno ao criar ocorrência.' })
+  } finally {
+    client.release()
+  }
+}
+
+exports.detalhe = async (req, res) => {
+  try {
+    const dados = await carregarDadosOcorrencia(req.params.id)
+
+    if (!dados) {
+      return res.status(404).send('Ocorrência não encontrada')
+    }
+
+    return res.render('acompanhamento_ocorrencia', {
+      ...dados,
+      erro: null,
+      sucesso: null
+    })
+  } catch (error) {
+    console.error('Erro ao abrir detalhe da ocorrência:', error)
+    return res.status(500).send('Erro ao abrir ocorrência')
+  }
+}
+
+exports.atualizarOcorrencia = async (req, res) => {
+  const client = await pool.connect()
+
+  try {
+    const ocorrenciaId = req.params.id
+    const novoStatus = req.body.novo_status || ''
+    const comentario = (req.body.comentario || '').trim()
+    const arquivos = Array.isArray(req.files) ? req.files : []
+    const totalBytes = arquivos.reduce((acc, file) => acc + (file.size || 0), 0)
+
+    const atualResult = await client.query(`
+      SELECT
+        o.id,
+        o.numero,
+        o.status,
+        s.nome AS status_nome
+      FROM ocorrencias o
+      LEFT JOIN status s ON s.id = o.status_id
+      WHERE o.id = $1
+      LIMIT 1
+    `, [ocorrenciaId])
+
+    if (!atualResult.rows.length) {
+      return res.status(404).send('Ocorrência não encontrada')
+    }
+
+    const ocorrenciaAtual = atualResult.rows[0]
+    const statusAtualNome = ocorrenciaAtual.status_nome || ocorrenciaAtual.status || ''
+
+    if (!comentario) {
+      const dados = await carregarDadosOcorrencia(ocorrenciaId)
+      return res.status(400).render('acompanhamento_ocorrencia', {
+        ...dados,
+        erro: 'Informe um comentário/andamento para registrar a atualização.',
+        sucesso: null
+      })
+    }
+
+    if (totalBytes > 10 * 1024 * 1024) {
+      const dados = await carregarDadosOcorrencia(ocorrenciaId)
+      return res.status(400).render('acompanhamento_ocorrencia', {
+        ...dados,
+        erro: 'O total de anexos por envio não pode ultrapassar 10 MB.',
+        sucesso: null
+      })
+    }
+
+    await client.query('BEGIN')
+
+    if (novoStatus && novoStatus !== statusAtualNome) {
+      if (!podeAlterarStatus(req.session.usuario, statusAtualNome, novoStatus)) {
+        await client.query('ROLLBACK')
+        const dados = await carregarDadosOcorrencia(ocorrenciaId)
+        return res.status(403).render('acompanhamento_ocorrencia', {
+          ...dados,
+          erro: 'Seu perfil não tem permissão para aplicar essa mudança de status.',
+          sucesso: null
+        })
+      }
+
+      const statusResult = await client.query(`
+        SELECT id, nome
+        FROM status
+        WHERE nome = $1
+        LIMIT 1
+      `, [novoStatus])
+
+      if (!statusResult.rows.length) {
+        await client.query('ROLLBACK')
+        const dados = await carregarDadosOcorrencia(ocorrenciaId)
+        return res.status(400).render('acompanhamento_ocorrencia', {
+          ...dados,
+          erro: 'Status selecionado não encontrado.',
+          sucesso: null
+        })
+      }
+
+      await client.query(`
+        UPDATE ocorrencias
+        SET
+          status = $1,
+          status_id = $2
+        WHERE id = $3
+      `, [novoStatus, statusResult.rows[0].id, ocorrenciaId])
+
+      await client.query(`
+        INSERT INTO historico_ocorrencias (
+          ocorrencia_id,
+          usuario_id,
+          acao,
+          tipo_evento,
+          titulo_evento,
+          descricao_evento
+        )
+        VALUES ($1, $2, $3, $4, $5, $6)
+      `, [
+        ocorrenciaId,
+        req.session.usuario.id,
+        'Alteração de status',
+        'STATUS',
+        `Status alterado para ${novoStatus}`,
+        `Status alterado de "${statusAtualNome}" para "${novoStatus}". Motivo/andamento: ${comentario}`
+      ])
+    }
+
+    await client.query(`
+      INSERT INTO historico_ocorrencias (
+        ocorrencia_id,
+        usuario_id,
+        acao,
+        tipo_evento,
+        titulo_evento,
+        descricao_evento
+      )
+      VALUES ($1, $2, $3, $4, $5, $6)
+    `, [
+      ocorrenciaId,
+      req.session.usuario.id,
+      'Atualização manual',
+      'ANDAMENTO',
+      'Novo andamento registrado',
+      comentario
+    ])
+
+    if (arquivos.length) {
+      const anexosEnviados = await uploadArquivosSupabase(ocorrenciaAtual.numero, arquivos)
+
+      for (const anexo of anexosEnviados) {
+        await client.query(`
+          INSERT INTO anexos (
+            ocorrencia_id,
+            nome_original,
+            nome_armazenado,
+            url_arquivo,
+            tamanho_bytes,
+            enviado_por_usuario_id
+          )
+          VALUES ($1, $2, $3, $4, $5, $6)
+        `, [
+          ocorrenciaId,
+          anexo.nome_original,
+          anexo.nome_armazenado,
+          anexo.url_arquivo,
+          anexo.tamanho_bytes,
+          req.session.usuario.id
+        ])
+
+        await client.query(`
+          INSERT INTO historico_ocorrencias (
+            ocorrencia_id,
+            usuario_id,
+            acao,
+            tipo_evento,
+            titulo_evento,
+            descricao_evento
+          )
+          VALUES ($1, $2, $3, $4, $5, $6)
+        `, [
+          ocorrenciaId,
+          req.session.usuario.id,
+          'Anexo incluído',
+          'ANEXO',
+          'Anexo adicionado na atualização',
+          `Arquivo anexado na atualização: ${anexo.nome_original}`
+        ])
+      }
+    }
+
+    await client.query('COMMIT')
+
+    const dados = await carregarDadosOcorrencia(ocorrenciaId)
+
+    return res.render('acompanhamento_ocorrencia', {
+      ...dados,
+      erro: null,
+      sucesso: 'Atualização registrada com sucesso.'
+    })
+  } catch (error) {
+    await client.query('ROLLBACK')
+    console.error('Erro ao atualizar ocorrência:', error)
+
+    const dados = await carregarDadosOcorrencia(req.params.id)
+    if (!dados) {
+      return res.status(500).send('Erro ao atualizar ocorrência')
+    }
+
+    return res.status(500).render('acompanhamento_ocorrencia', {
+      ...dados,
+      erro: 'Erro interno ao atualizar ocorrência.',
+      sucesso: null
+    })
+  } finally {
+    client.release()
+  }
+}
