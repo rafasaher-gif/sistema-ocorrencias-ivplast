@@ -18,6 +18,6 @@ router.post('/nova', isAuthenticated, upload.array('anexos', 10), ocorrenciaCont
 router.get('/produtos', isAuthenticated, ocorrenciaController.produtosPorEmpresa)
 
 router.get('/:id', isAuthenticated, ocorrenciaController.detalhe)
-router.post('/:id/atualizar', isAuthenticated, ocorrenciaController.atualizarOcorrencia)
+router.post('/:id/atualizar', isAuthenticated, upload.array('anexos', 10), ocorrenciaController.atualizarOcorrencia)
 
 module.exports = router
