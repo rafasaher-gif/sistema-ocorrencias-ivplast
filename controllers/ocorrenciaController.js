@@ -45,18 +45,10 @@ async function uploadArquivosSupabase(ocorrenciaNumero, files = []) {
       throw new Error(`Erro ao enviar anexo "${file.originalname}": ${error.message}`)
     }
 
-    const { data: signedData, error: signedError } = await supabase.storage
-      .from(bucket)
-      .createSignedUrl(nomeArmazenado, 60 * 60 * 24 * 7)
-
-    if (signedError) {
-      throw new Error(`Erro ao gerar link do anexo "${file.originalname}": ${signedError.message}`)
-    }
-
     enviados.push({
       nome_original: file.originalname,
       nome_armazenado: nomeArmazenado,
-      url_arquivo: signedData?.signedUrl || '',
+      url_arquivo: nomeArmazenado,
       tamanho_bytes: file.size
     })
   }
@@ -138,10 +130,12 @@ async function carregarDadosOcorrencia(ocorrenciaId) {
 
   const anexosComLink = []
   for (const anexo of anexosResult.rows) {
-    const link = await gerarLinkAnexo(anexo.nome_armazenado)
+    const caminhoArquivo = anexo.nome_armazenado || anexo.url_arquivo || ''
+    const link = await gerarLinkAnexo(caminhoArquivo)
+
     anexosComLink.push({
       ...anexo,
-      url_visualizacao: link || anexo.url_arquivo || '',
+      url_visualizacao: link || '',
       tamanho_formatado: tamanhoFormatado(anexo.tamanho_bytes || 0)
     })
   }
@@ -789,7 +783,21 @@ exports.atualizarOcorrencia = async (req, res) => {
     ])
 
     if (arquivos.length) {
-      const anexosEnviados = await uploadArquivosSupabase(ocorrenciaAtual.numero, arquivos)
+      let anexosEnviados = []
+
+      try {
+        anexosEnviados = await uploadArquivosSupabase(ocorrenciaAtual.numero, arquivos)
+      } catch (uploadError) {
+        await client.query('ROLLBACK')
+        console.error('Erro no upload da atualização:', uploadError)
+
+        const dados = await carregarDadosOcorrencia(ocorrenciaId)
+        return res.status(500).render('acompanhamento_ocorrencia', {
+          ...dados,
+          erro: `Erro ao enviar anexo: ${uploadError.message}`,
+          sucesso: null
+        })
+      }
 
       for (const anexo of anexosEnviados) {
         await client.query(`
