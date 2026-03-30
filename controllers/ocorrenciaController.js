@@ -16,6 +16,13 @@ function nomeArquivoSeguro(nome = '') {
     .replace(/[^a-zA-Z0-9._-]/g, '_')
 }
 
+function tamanhoFormatado(bytes = 0) {
+  const kb = Math.round(bytes / 1024)
+  if (kb < 1024) return `${kb} KB`
+  const mb = (bytes / (1024 * 1024)).toFixed(2)
+  return `${mb} MB`
+}
+
 async function uploadArquivosSupabase(ocorrenciaNumero, files = []) {
   const bucket = process.env.SUPABASE_BUCKET
   const enviados = []
@@ -38,17 +45,39 @@ async function uploadArquivosSupabase(ocorrenciaNumero, files = []) {
       throw new Error(`Erro ao enviar anexo "${file.originalname}": ${error.message}`)
     }
 
-    const { data: publicData } = supabase.storage.from(bucket).getPublicUrl(nomeArmazenado)
+    const { data: signedData, error: signedError } = await supabase.storage
+      .from(bucket)
+      .createSignedUrl(nomeArmazenado, 60 * 60 * 24 * 7)
+
+    if (signedError) {
+      throw new Error(`Erro ao gerar link do anexo "${file.originalname}": ${signedError.message}`)
+    }
 
     enviados.push({
       nome_original: file.originalname,
       nome_armazenado: nomeArmazenado,
-      url_arquivo: publicData?.publicUrl || nomeArmazenado,
+      url_arquivo: signedData?.signedUrl || '',
       tamanho_bytes: file.size
     })
   }
 
   return enviados
+}
+
+async function gerarLinkAnexo(nomeArmazenado) {
+  if (!nomeArmazenado) return ''
+  const bucket = process.env.SUPABASE_BUCKET
+
+  const { data, error } = await supabase.storage
+    .from(bucket)
+    .createSignedUrl(nomeArmazenado, 60 * 60 * 24 * 7)
+
+  if (error) {
+    console.error('Erro ao gerar signed url:', error.message)
+    return ''
+  }
+
+  return data?.signedUrl || ''
 }
 
 async function carregarDadosOcorrencia(ocorrenciaId) {
@@ -107,6 +136,16 @@ async function carregarDadosOcorrencia(ocorrenciaId) {
     ORDER BY id ASC
   `, [ocorrenciaId])
 
+  const anexosComLink = []
+  for (const anexo of anexosResult.rows) {
+    const link = await gerarLinkAnexo(anexo.nome_armazenado)
+    anexosComLink.push({
+      ...anexo,
+      url_visualizacao: link || anexo.url_arquivo || '',
+      tamanho_formatado: tamanhoFormatado(anexo.tamanho_bytes || 0)
+    })
+  }
+
   const historicoResult = await pool.query(`
     SELECT
       h.*,
@@ -147,7 +186,7 @@ async function carregarDadosOcorrencia(ocorrenciaId) {
     questionario: questionarioResult.rows[0] || null,
     itens: itensResult.rows,
     itensPorBloco,
-    anexos: anexosResult.rows,
+    anexos: anexosComLink,
     historico: historicoResult.rows,
     statusList: statusResult.rows
   }
@@ -632,6 +671,8 @@ exports.atualizarOcorrencia = async (req, res) => {
     const ocorrenciaId = req.params.id
     const novoStatus = req.body.novo_status || ''
     const comentario = (req.body.comentario || '').trim()
+    const arquivos = Array.isArray(req.files) ? req.files : []
+    const totalBytes = arquivos.reduce((acc, file) => acc + (file.size || 0), 0)
 
     const atualResult = await client.query(`
       SELECT
@@ -657,6 +698,15 @@ exports.atualizarOcorrencia = async (req, res) => {
       return res.status(400).render('acompanhamento_ocorrencia', {
         ...dados,
         erro: 'Informe um comentário/andamento para registrar a atualização.',
+        sucesso: null
+      })
+    }
+
+    if (totalBytes > 10 * 1024 * 1024) {
+      const dados = await carregarDadosOcorrencia(ocorrenciaId)
+      return res.status(400).render('acompanhamento_ocorrencia', {
+        ...dados,
+        erro: 'O total de anexos por envio não pode ultrapassar 10 MB.',
         sucesso: null
       })
     }
@@ -737,6 +787,50 @@ exports.atualizarOcorrencia = async (req, res) => {
       'Novo andamento registrado',
       comentario
     ])
+
+    if (arquivos.length) {
+      const anexosEnviados = await uploadArquivosSupabase(ocorrenciaAtual.numero, arquivos)
+
+      for (const anexo of anexosEnviados) {
+        await client.query(`
+          INSERT INTO anexos (
+            ocorrencia_id,
+            nome_original,
+            nome_armazenado,
+            url_arquivo,
+            tamanho_bytes,
+            enviado_por_usuario_id
+          )
+          VALUES ($1, $2, $3, $4, $5, $6)
+        `, [
+          ocorrenciaId,
+          anexo.nome_original,
+          anexo.nome_armazenado,
+          anexo.url_arquivo,
+          anexo.tamanho_bytes,
+          req.session.usuario.id
+        ])
+
+        await client.query(`
+          INSERT INTO historico_ocorrencias (
+            ocorrencia_id,
+            usuario_id,
+            acao,
+            tipo_evento,
+            titulo_evento,
+            descricao_evento
+          )
+          VALUES ($1, $2, $3, $4, $5, $6)
+        `, [
+          ocorrenciaId,
+          req.session.usuario.id,
+          'Anexo incluído',
+          'ANEXO',
+          'Anexo adicionado na atualização',
+          `Arquivo anexado na atualização: ${anexo.nome_original}`
+        ])
+      }
+    }
 
     await client.query('COMMIT')
 
